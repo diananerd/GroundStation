@@ -30,7 +30,7 @@ jobs:
         run: docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}"
 
       - name: Show src and build files
-        run: ls -ld $(find . -type f -not -path '*/\.git/*' -not -path '*/build/**/*') && cat ./main/esp32-ci.c
+        run: ls -ld $(find . -type f -not -path '*/\.git/*' -not -path '*/build/**/*') && cat ./main/ground-station.c
 
       - name: Create Release
         id: create_release
@@ -50,6 +50,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ./build/esp32-ci.bin
+          asset_path: ./build/ground-station.bin
           asset_name: firmware-${{ env.GitVersion_SemVer }}.bin
           asset_content_type: application/octet-stream
