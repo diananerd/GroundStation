@@ -1,0 +1,55 @@
+name: "Espressif IoT Development Framework (ESP-IDF) release build"
+
+on:
+  pull_request:
+    branches: 
+      - main
+    types: [closed]
+
+jobs:
+  build:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.9.7
+        with:
+          versionSpec: '5.x'
+
+      - name: Determine Version
+        uses: gittools/actions/gitversion/execute@v0.9.7
+
+      - name: Show Version
+        run: echo "Build and release version " ${{ env.GitVersion_SemVer }}
+
+      - name: Run the build process with Docker
+        id: build
+        run: docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}"
+
+      - name: Show src and build files
+        run: ls -ld $(find . -type f -not -path '*/\.git/*' -not -path '*/build/**/*') && cat ./main/esp32-ci.c
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.GitVersion_SemVer }}
+          release_name: Release ${{ env.GitVersion_SemVer }}
+          draft: true
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: ./build/esp32-ci.bin
+          asset_name: firmware-${{ env.GitVersion_SemVer }}.bin
+          asset_content_type: application/octet-stream
