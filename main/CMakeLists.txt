@@ -1,4 +1,4 @@
 idf_component_register(
-    SRCS "ground-stations.c"
+    SRCS "ground-station.c"
     INCLUDE_DIRS "."
 )
