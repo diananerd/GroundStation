@@ -2,10 +2,13 @@
 #include <string.h>
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_ota_ops.h"
 #include "esp_console.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "cmd_nvs.h"
+
+static const char* TAG = "GroundStation";
 
 static void initialize_nvs(void) {
   esp_err_t err = nvs_flash_init();
@@ -17,6 +20,12 @@ static void initialize_nvs(void) {
 }
 
 void app_main(void) {
+  /* Log git version build */
+  const esp_app_desc_t* app_description;
+  app_description = esp_app_get_description();
+
+  ESP_LOGI(TAG, "Build version: %s", app_description->version);
+
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;
   esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
