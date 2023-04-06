@@ -64,4 +64,4 @@ jobs:
           source_dir: ./build/ground-station.bin
 
       - name: Link To S3
-        run: echo "https://s3.amazonaws.com/platzi-ground-station-beta/${{steps.S3.outputs.object_key}}/firmware.bin"
+        run: echo "https://s3.amazonaws.com/platzi-ground-station-beta/${{steps.S3.outputs.object_key}}/ground-station.bin"
