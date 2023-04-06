@@ -24,7 +24,7 @@ void app_main(void) {
   const esp_app_desc_t* app_description;
   app_description = esp_app_get_description();
 
-  ESP_LOGI(TAG, "Build version: %s", app_description->version);
+  ESP_LOGI(TAG, "Build version %s", app_description->version);
 
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;
