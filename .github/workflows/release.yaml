@@ -61,7 +61,7 @@ jobs:
           aws_key_id: ${{secrets.AWS_KEY_ID}}
           aws_secret_access_key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
           aws_bucket: platzi-ground-station-beta
-          source_dir: release
+          source_dir: ./build/ground-station.bin
 
       - name: Link To S3
-        run: echo "https://s3.amazonaws.com/platzi-ground-station-beta/${{steps.S3.outputs.object_key}}/firmware"
+        run: echo "https://s3.amazonaws.com/platzi-ground-station-beta/${{steps.S3.outputs.object_key}}/firmware.bin"
