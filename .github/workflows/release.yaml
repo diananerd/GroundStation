@@ -32,9 +32,6 @@ jobs:
         id: build
         run: docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}"
 
-      - name: Show src and build files
-        run: ls -ld $(find . -type f -not -path '*/\.git/*' -not -path '*/build/**/*') && cat ./main/ground-station.c
-
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -64,7 +61,7 @@ jobs:
           aws_key_id: ${{secrets.AWS_KEY_ID}}
           aws_secret_access_key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
           aws_bucket: platzi-ground-station-beta
-          source_dir: release
+          source_dir: ./build/ground-station.bin
 
       - name: Link To S3
-        run: echo "https://s3.amazonaws.com/platzi-ground-station-beta/${{steps.S3.outputs.object_key}}/firmware"
+        run: echo "https://s3.amazonaws.com/platzi-ground-station-beta/${{steps.S3.outputs.object_key}}/ground-station.bin"
