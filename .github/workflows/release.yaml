@@ -63,6 +63,9 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-bucket: ${{ secrets.AWS_BUCKET }}
           file-path: './build/ground-station.bin'
+          bucket-root: /
+          destination-dir: /
+          public: true
           output-file-url: true
 
       - name: Show S3 URL
