@@ -65,7 +65,3 @@ jobs:
           file-path: './build/ground-station.bin'
           bucket-root: /
           destination-dir: /
-          output-file-url: true
-
-      - name: Show S3 URL
-        run: echo '${{ steps.upload-s3.outputs.file-url }}'
