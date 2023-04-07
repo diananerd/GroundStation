@@ -54,9 +54,6 @@ jobs:
           asset_name: firmware.bin
           asset_content_type: application/octet-stream
 
-      - name: List files after build
-        run: ls -ld $(find . -type f -not -path '*/\.git/*')
-
       - name: Upload to S3
         uses: shallwefootball/s3-upload-action@master
         id: S3
@@ -64,4 +61,4 @@ jobs:
           aws_key_id: ${{secrets.AWS_KEY_ID}}
           aws_secret_access_key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
           aws_bucket: platzi-ground-station-beta
-          source_dir: ./build
+          source_dir: ./build/ground-station.bin
