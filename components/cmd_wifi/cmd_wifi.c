@@ -109,6 +109,7 @@ static bool wifi_list(int timeout_ms)
 
     ESP_LOGI("networks", "scan stop");
     esp_wifi_scan_stop();
+    xEventGroupClearBits(wifi_event_group, SCAN_BIT);
 
     return (bits & SCAN_BIT) != 0;
 }
