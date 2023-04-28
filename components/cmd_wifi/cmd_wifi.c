@@ -61,7 +61,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_SCAN_DONE) {
         xTaskCreate(wifi_scan_show_records, "show_networks", 1024 * 32, NULL, 10, NULL);
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
-        printf("WIFI Connected event!\n");
+        printf("WiFi Connected\n");
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         esp_wifi_connect();
         xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
@@ -137,7 +137,6 @@ static int networks(int argc, char **argv) {
         ESP_LOGW(__func__, "List networks timed out");
         return 1;
     }
-    ESP_LOGI(__func__, "List networks end");
     return 0;
 }
 
@@ -153,15 +152,15 @@ static bool wifi_join(const char *ssid, const char *pass, int timeout_ms)
     esp_err_t err = esp_wifi_connect();
 
     if (err == ESP_OK) {
-        ESP_LOGI("networks", "ESP_OK");
+        ESP_LOGI("join", "WiFi connected");
     } else if (err == ESP_ERR_WIFI_NOT_INIT) {
-        ESP_LOGE("networks", "WiFi not initialized");
+        ESP_LOGE("join", "WiFi not initialized");
     } else if (err == ESP_ERR_WIFI_NOT_STARTED) {
-        ESP_LOGE("networks", "WiFi not started");
+        ESP_LOGE("join", "WiFi not started");
     } else if (err == ESP_ERR_WIFI_CONN) {
-        ESP_LOGE("networks", "WiFi internal error");
+        ESP_LOGE("join", "WiFi internal error");
     } else if (err == ESP_ERR_WIFI_SSID) {
-        ESP_LOGE("networks", "WiFi invalid ssid");
+        ESP_LOGE("join", "WiFi invalid ssid");
     }
 
     int bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
