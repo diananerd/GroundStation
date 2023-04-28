@@ -7,6 +7,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "cmd_nvs.h"
+#include "cmd_wifi.h"
 
 static const char* TAG = "GroundStation";
 
@@ -35,7 +36,8 @@ void app_main(void) {
 
   /* Register commands */
   esp_console_register_help_command();
-  register_nvs();
+  // register_nvs();
+  register_wifi();
 
   /* Setup console REPL over UART */
   esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
