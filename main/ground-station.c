@@ -33,6 +33,7 @@ void app_main(void) {
   repl_config.prompt = ">";
 
   initialize_nvs();
+  initialise_wifi();
 
   /* Register commands */
   esp_console_register_help_command();
