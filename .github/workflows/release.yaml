@@ -54,14 +54,29 @@ jobs:
           asset_name: firmware.bin
           asset_content_type: application/octet-stream
 
-      - name: Upload to S3
+      - name: Upload firmware to S3
         uses: hkusu/s3-upload-action@v2
-        id: upload-s3
+        id: upload-firmware-s3
         with:
           aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
           aws-bucket: ${{ secrets.AWS_BUCKET }}
-          file-path: './build/ground-station_${{ env.GitVersion_SemVer }}.bin'
+          file-path: './build/ground-station.bin'
+          bucket-root: /
+          destination-dir: ${{ env.GitVersion_SemVer }}
+
+      - name: Create version file
+        run: echo  "${{ env.GitVersion_SemVer }}" > version.txt
+
+      - name: Upload version file to S3
+        uses: hkusu/s3-upload-action@v2
+        id: upload-version-s3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-bucket: ${{ secrets.AWS_BUCKET }}
+          file-path: 'version.txt'
           bucket-root: /
           destination-dir: /
