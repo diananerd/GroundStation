@@ -62,6 +62,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
           aws-bucket: ${{ secrets.AWS_BUCKET }}
-          file-path: './build/ground-station.bin'
+          file-path: './build/ground-station_${{ env.GitVersion_SemVer }}.bin'
           bucket-root: /
           destination-dir: /
