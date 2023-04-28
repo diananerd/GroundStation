@@ -70,7 +70,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-static void initialise_wifi(void)
+void initialise_wifi(void)
 {
     esp_log_level_set("wifi", ESP_LOG_WARN);
     if (initialized) {
@@ -235,5 +235,5 @@ void register_wifi(void)
 
     ESP_ERROR_CHECK( esp_console_cmd_register(&join_cmd) );
     ESP_ERROR_CHECK( esp_console_cmd_register(&networks_cmd) );
-    initialise_wifi();
+    // initialise_wifi();
 }
