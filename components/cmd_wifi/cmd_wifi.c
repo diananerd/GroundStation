@@ -236,5 +236,4 @@ void register_wifi(void)
 
     ESP_ERROR_CHECK( esp_console_cmd_register(&join_cmd) );
     ESP_ERROR_CHECK( esp_console_cmd_register(&networks_cmd) );
-    // initialise_wifi();
 }
