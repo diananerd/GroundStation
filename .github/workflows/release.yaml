@@ -63,7 +63,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-bucket: ${{ secrets.AWS_BUCKET }}
           file-path: './build/ground-station.bin'
-          bucket-root: /
+          bucket-root: /firmware
           destination-dir: ${{ env.GitVersion_SemVer }}
 
       - name: Create version file
@@ -78,5 +78,5 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-bucket: ${{ secrets.AWS_BUCKET }}
           file-path: 'version.txt'
-          bucket-root: /
+          bucket-root: /firmware
           destination-dir: /
