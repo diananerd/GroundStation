@@ -73,24 +73,44 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 
 void initialise_wifi(void)
 {
-    esp_log_level_set("wifi", ESP_LOG_WARN);
+    ESP_LOGI("wifi", "initialize wifi");
+    // esp_log_level_set("wifi", ESP_LOG_WARN);
     if (initialized) {
+        ESP_LOGI("wifi", "previously initialized");
         return;
     }
+    ESP_LOGI("wifi", "initializing...");
     ESP_ERROR_CHECK(esp_netif_init());
     wifi_event_group = xEventGroupCreate();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
     assert(sta_netif);
+    ESP_LOGI("wifi", "set config");
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+    ESP_LOGI("wifi", "add event handlers");
     ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_SCAN_DONE, &event_handler, NULL) );
     ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_CONNECTED, &event_handler, NULL) );
     ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &event_handler, NULL) );
     ESP_ERROR_CHECK( esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL) );
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+    ESP_LOGI("wifi", "start");
     ESP_ERROR_CHECK( esp_wifi_start() );
     initialized = true;
+    ESP_LOGI("wifi", "connect");
+    esp_err_t err = esp_wifi_connect();
+    if (err == ESP_OK) {
+        ESP_LOGI("join", "WiFi connected");
+    } else if (err == ESP_ERR_WIFI_NOT_INIT) {
+        ESP_LOGE("join", "WiFi not initialized");
+    } else if (err == ESP_ERR_WIFI_NOT_STARTED) {
+        ESP_LOGE("join", "WiFi not started");
+    } else if (err == ESP_ERR_WIFI_CONN) {
+        ESP_LOGE("join", "WiFi internal error");
+    } else if (err == ESP_ERR_WIFI_SSID) {
+        ESP_LOGE("join", "WiFi invalid ssid");
+    }
+    ESP_LOGI("wifi", "initialize end");
 }
 
 static bool wifi_list(int timeout_ms)
@@ -208,8 +228,60 @@ static int connect(int argc, char **argv)
     return 0;
 }
 
+static bool network_status()
+{
+    int bits = xEventGroupGetBits(wifi_event_group);
+    bool connected = (bits & CONNECTED_BIT) != 0;
+    if (connected) {
+        printf("Network connected\n");
+    } else {
+        printf("Network disconnected\n");
+    }
+    return 0;
+}
+
+/** Arguments used by 'networks' function */
+static struct {
+    struct arg_int *timeout;
+    struct arg_end *end;
+} status_args;
+
+static int status(int argc, char **argv)
+{
+    if (!initialized) {
+        ESP_LOGE(__func__, "Network not initialized");
+        return 1;
+    }
+
+    int nerrors = arg_parse(argc, argv, (void **) &status_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, status_args.end, argv[0]);
+        return 1;
+    }
+    ESP_LOGI(__func__, "Load network status");
+
+    bool err = network_status();
+    if (err) {
+        ESP_LOGW(__func__, "Failed status");
+        return 1;
+    }
+    ESP_LOGI(__func__, "Success status");
+    return 0;
+}
+
 void register_wifi(void)
 {
+    status_args.timeout = arg_int0(NULL, "timeout", "<t>", "Connection timeout, ms");
+    status_args.end = arg_end(2);
+
+    const esp_console_cmd_t status_cmd = {
+        .command = "status",
+        .help = "Show network status",
+        .hint = NULL,
+        .func = &status,
+        .argtable = &status_args
+    };
+
     networks_args.timeout = arg_int0(NULL, "timeout", "<t>", "Connection timeout, ms");
     networks_args.end = arg_end(2);
 
@@ -236,4 +308,5 @@ void register_wifi(void)
 
     ESP_ERROR_CHECK( esp_console_cmd_register(&join_cmd) );
     ESP_ERROR_CHECK( esp_console_cmd_register(&networks_cmd) );
+    ESP_ERROR_CHECK( esp_console_cmd_register(&status_cmd) );
 }
