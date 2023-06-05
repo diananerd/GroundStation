@@ -37,7 +37,7 @@ void app_main(void) {
 
   /* Register commands */
   esp_console_register_help_command();
-  register_nvs();
+  // register_nvs();
   register_wifi();
 
   /* Setup console REPL over UART */
