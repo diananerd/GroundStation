@@ -9,9 +9,6 @@
 #define MAX_HTTP_OUTPUT_BUFFER 1048576 // 1024 * 1024
 static const char *TAG = "API_CALLS";
 
-extern const char amazonaws_com_root_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
-extern const char amazonaws_com_root_cert_pem_end[]   asm("_binary_amazonaws_com_root_cert_pem_end");
-
 extern const char platzi_com_root_cert_pem_start[] asm("_binary_platzi_com_root_cert_pem_start");
 extern const char platzi_com_root_cert_pem_end[]   asm("_binary_platzi_com_root_cert_pem_end");
 

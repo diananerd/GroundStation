@@ -1,20 +1,48 @@
-#include <stdio.h>
 #include <string.h>
-#include "esp_system.h"
+#include <inttypes.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "esp_log.h"
-#include "esp_ota_ops.h"
+#include "esp_event.h"
+#include "esp_system.h"
 #include "esp_console.h"
+#include "esp_ota_ops.h"
+#include "esp_http_client.h"
+#include "esp_https_ota.h"
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "cmd_nvs.h"
 #include "cmd_wifi.h"
 #include "api_calls.h"
 #include "cmd_api.h"
 
-#define MAX_HTTP_RECV_BUFFER 512
-#define MAX_HTTP_OUTPUT_BUFFER 2048
+#define EXAMPLE_FIRMWARE_UPGRADE_URL "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/1.0.6/ground-station.bin"
 
 static const char* TAG = "GroundStation";
+extern const uint8_t server_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
+extern const uint8_t server_cert_pem_end[] asm("_binary_amazonaws_com_root_cert_pem_end");
+
+void ota_task(void *pvParameter) {
+    ESP_LOGI(TAG, "Starting OTA Task");
+    esp_http_client_config_t http_config = {
+      .url = EXAMPLE_FIRMWARE_UPGRADE_URL,
+      .cert_pem = (char *)server_cert_pem_start,
+    };
+    esp_https_ota_config_t config = {
+      .http_config = &http_config,
+    };
+    for (;;) {
+      ESP_LOGI(TAG, "Search for OTA updates...");
+      esp_err_t ret = esp_https_ota(&config);
+      if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Upgrade firmware!");
+        esp_restart();
+      } else {
+        ESP_LOGI(TAG, "The firmware version is up-to-date");
+      }
+      vTaskDelay((1000 * 60 * 1) / portTICK_PERIOD_MS);
+    }
+}
 
 static void initialize_nvs(void) {
   esp_err_t err = nvs_flash_init();
@@ -43,7 +71,6 @@ void app_main(void) {
 
   /* Register commands */
   esp_console_register_help_command();
-  // register_nvs();
   register_wifi();
   register_api();
 
@@ -53,4 +80,6 @@ void app_main(void) {
 
   /* Run REPL */
   ESP_ERROR_CHECK(esp_console_start_repl(repl));
+
+  xTaskCreate(&ota_task, "ota_task", 1024 * 8, NULL, 5, NULL);
 }
