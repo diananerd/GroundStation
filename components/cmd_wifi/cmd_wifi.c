@@ -71,7 +71,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-void initialise_wifi(void)
+void initialize_wifi(void)
 {
     ESP_LOGI("wifi", "initialize wifi");
     // esp_log_level_set("wifi", ESP_LOG_WARN);
@@ -117,6 +117,7 @@ static bool wifi_list(int timeout_ms)
 {
     ESP_LOGI("networks", "scan start");
     wifi_scan_config_t wifi_scan_config = {};
+    esp_wifi_disconnect();
     esp_wifi_scan_start(&wifi_scan_config, WAIT_FOR_AP_SCAN);
 
     int bits = xEventGroupWaitBits(wifi_event_group, SCAN_BIT,

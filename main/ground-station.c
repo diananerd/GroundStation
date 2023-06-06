@@ -8,6 +8,11 @@
 #include "nvs_flash.h"
 #include "cmd_nvs.h"
 #include "cmd_wifi.h"
+#include "api_calls.h"
+#include "cmd_api.h"
+
+#define MAX_HTTP_RECV_BUFFER 512
+#define MAX_HTTP_OUTPUT_BUFFER 2048
 
 static const char* TAG = "GroundStation";
 
@@ -33,12 +38,14 @@ void app_main(void) {
   repl_config.prompt = ">";
 
   initialize_nvs();
-  initialise_wifi();
+  initialize_wifi();
+  initialize_api();
 
   /* Register commands */
   esp_console_register_help_command();
   // register_nvs();
   register_wifi();
+  register_api();
 
   /* Setup console REPL over UART */
   esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
