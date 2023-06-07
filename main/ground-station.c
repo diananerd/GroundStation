@@ -1,5 +1,6 @@
 #include <string.h>
 #include <inttypes.h>
+#include <sys/param.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -16,13 +17,130 @@
 #include "api_calls.h"
 #include "cmd_api.h"
 
-#define EXAMPLE_FIRMWARE_UPGRADE_URL "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/1.0.6/ground-station.bin"
-#define EXAMPLE_HTTP_REQUEST_SIZE 16384
-#define OTA_WAIT_PERIOD_MS 1000 * 30 // (1000 * 60 * 1)
+#define MAX_HTTP_RECV_BUFFER 512
+#define MAX_HTTP_OUTPUT_BUFFER 512
+
+#define BASE_FIRMWARE_UPGRADE_URL "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/version.txt" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware"
+#define FIRMWARE_STR "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin"
+#define HTTP_REQUEST_SIZE 16384
+#define OTA_WAIT_PERIOD_MS 5000 //1000 * 30 // (1000 * 60 * 1)
 
 static const char* TAG = "GroundStation";
-extern const uint8_t server_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
-extern const uint8_t server_cert_pem_end[] asm("_binary_amazonaws_com_root_cert_pem_end");
+extern const char server_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
+extern const char server_cert_pem_end[] asm("_binary_amazonaws_com_root_cert_pem_end");
+
+esp_err_t _http_get_event_handler(esp_http_client_event_t *evt) {
+    static char *output_buffer;  // Buffer to store response of http request from event handler
+    static int output_len;       // Stores number of bytes read
+    switch(evt->event_id) {
+        case HTTP_EVENT_ERROR:
+            ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
+            break;
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
+            break;
+        case HTTP_EVENT_HEADER_SENT:
+            ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
+            break;
+        case HTTP_EVENT_ON_HEADER:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+            break;
+        case HTTP_EVENT_ON_DATA:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            /*
+             *  Check for chunked encoding is added as the URL for chunked encoding used in this example returns binary data.
+             *  However, event handler can also be used in case chunked encoding is used.
+             */
+            if (!esp_http_client_is_chunked_response(evt->client)) {
+                // If user_data buffer is configured, copy the response into the buffer
+                int copy_len = 0;
+                if (evt->user_data) {
+                    copy_len = MIN(evt->data_len, (MAX_HTTP_OUTPUT_BUFFER - output_len));
+                    if (copy_len) {
+                        memcpy(evt->user_data + output_len, evt->data, copy_len);
+                    }
+                } else {
+                    const int buffer_len = esp_http_client_get_content_length(evt->client);
+                    if (output_buffer == NULL) {
+                        output_buffer = (char *) malloc(buffer_len);
+                        output_len = 0;
+                        if (output_buffer == NULL) {
+                            ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
+                            return ESP_FAIL;
+                        }
+                    }
+                    copy_len = MIN(evt->data_len, (buffer_len - output_len));
+                    if (copy_len) {
+                        memcpy(output_buffer + output_len, evt->data, copy_len);
+                    }
+                }
+                output_len += copy_len;
+            }
+
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+            if (output_buffer != NULL) {
+                // Response is accumulated in output_buffer. Uncomment the below line to print the accumulated response
+                // ESP_LOG_BUFFER_HEX(TAG, output_buffer, output_len);
+                free(output_buffer);
+                output_buffer = NULL;
+            }
+            output_len = 0;
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+            if (output_buffer != NULL) {
+                free(output_buffer);
+                output_buffer = NULL;
+            }
+            output_len = 0;
+            break;
+        case HTTP_EVENT_REDIRECT:
+            ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
+            esp_http_client_set_redirection(evt->client);
+            break;
+    }
+    return ESP_OK;
+}
+
+void removeChar(char *str, char c) {
+    int i, j;
+    int len = strlen(str);
+    for (i = j = 0; i < len; i++) {
+        if (str[i] != c) {
+            str[j++] = str[i];
+        }
+    }
+    str[j] = '\0';
+}
+
+char* get_firmware_version(const char *version_url) {
+    char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};
+    esp_http_client_config_t config = {
+        .url = version_url,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,
+        .event_handler = _http_get_event_handler,
+        .cert_pem = server_cert_pem_start,
+        .user_data = local_response_buffer,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_err_t err = esp_http_client_perform(client);
+
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64,
+                esp_http_client_get_status_code(client),
+                esp_http_client_get_content_length(client));
+    } else {
+        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
+    }
+    esp_http_client_cleanup(client);
+    ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
+    char *version = (char *)malloc(strlen(local_response_buffer)+1);
+    strcpy((char*)version, local_response_buffer);
+    removeChar(version, 0x0a);
+    return version;
+}
 
 static esp_err_t validate_image_header(esp_app_desc_t *new_app_info)
 {
@@ -48,15 +166,22 @@ void ota_task(void *pvParameter) {
     ESP_LOGI(TAG, "Starting OTA Task");
     esp_err_t ota_finish_err = ESP_OK;
 
+    char *version = get_firmware_version(BASE_FIRMWARE_UPGRADE_URL);
+    ESP_LOGI(TAG, "Last firmware version: %s", version);
+    size_t url_size = 256;
+    char firmware_url[url_size];
+    sprintf(firmware_url, FIRMWARE_STR, version);
+    ESP_LOGI(TAG, "Firmware URL: %s", firmware_url);
+
     esp_http_client_config_t http_config = {
-      .url = EXAMPLE_FIRMWARE_UPGRADE_URL,
+      .url = firmware_url,
       .cert_pem = (char *)server_cert_pem_start,
       .keep_alive_enable = true,
     };
     esp_https_ota_config_t ota_config = {
       .http_config = &http_config,
       .partial_http_download = true,
-      .max_http_request_size = EXAMPLE_HTTP_REQUEST_SIZE,
+      .max_http_request_size = HTTP_REQUEST_SIZE,
     };
 
     while (true) {
