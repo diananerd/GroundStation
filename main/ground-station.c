@@ -25,7 +25,7 @@
 #define BASE_FIRMWARE_UPGRADE_URL "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/version.txt" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware"
 #define FIRMWARE_STR "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin"
 #define HTTP_REQUEST_SIZE 16384
-#define OTA_WAIT_PERIOD_MS 30000 // Fetch OTA Updates every 5 minutes
+#define OTA_WAIT_PERIOD_MS 300000 // Fetch OTA Updates every 5 minutes
 #define MAX_OTA_SIZE 4194304 // 4MB
 
 #define LORA_MESSAGE_LENGTH 240
