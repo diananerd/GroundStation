@@ -25,6 +25,7 @@
 #define FIRMWARE_STR "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin"
 #define HTTP_REQUEST_SIZE 16384
 #define OTA_WAIT_PERIOD_MS 2500 // 300000 // Fetch OTA Updates every 5 minutes
+#define MAX_OTA_SIZE 4194304 // 4MB
 
 static const char* TAG = "GroundStation";
 extern const char server_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
@@ -44,6 +45,11 @@ void screen_clear() {
 void screen_print(char * str, int page) {
   ssd1306_clear_line(&screen, page, false);
   ssd1306_display_text(&screen, page, str, strlen(str), false);
+}
+
+void screen_print_big(char * str, int page) {
+  ssd1306_clear_line(&screen, page, false);
+  ssd1306_display_text_x3(&screen, page, str, strlen(str), false);
 }
 
 void screen_draw(uint8_t *img) {
@@ -236,16 +242,18 @@ void ota_task(void *pvParameter) {
         goto task_end;
       }
 
-        screen_print("Actualizando...", 0);
+      screen_clear();
+      screen_print("  Actualizando", 1);
       while(true) {
           err = esp_https_ota_perform(https_ota_handle);
           if (err != ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
             break;
           }
           int bytes_len = esp_https_ota_get_image_len_read(https_ota_handle);
-          char bytes_str[24];
-          sprintf(bytes_str, "%d", bytes_len);
-          screen_print(bytes_str, 1);
+          char bytes_str[16];
+          float percent = 100.00;//(bytes_len * 100) / MAX_OTA_SIZE;
+          sprintf(bytes_str, "%*.0f%%", 4, percent);
+          screen_print_big(bytes_str, 4);
           ESP_LOGI(TAG, "Image bytes read: %d", bytes_len);
       }
 
@@ -283,7 +291,7 @@ static void initialize_nvs(void) {
   ESP_ERROR_CHECK(err);
 }
 
-static const uint8_t gs_logo[1024] =  {
+static uint8_t gs_logo[1024] =  {
 	// 'favicon, 64x64px// 'hdpi', 128x64px
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
