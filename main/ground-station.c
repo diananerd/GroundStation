@@ -251,7 +251,7 @@ void ota_task(void *pvParameter) {
           }
           int bytes_len = esp_https_ota_get_image_len_read(https_ota_handle);
           char bytes_str[16];
-          float percent = 100.00;//(bytes_len * 100) / MAX_OTA_SIZE;
+          float percent = (bytes_len * 100) / MAX_OTA_SIZE;
           sprintf(bytes_str, "%*.0f%%", 4, percent);
           screen_print_big(bytes_str, 4);
           ESP_LOGI(TAG, "Image bytes read: %d", bytes_len);
