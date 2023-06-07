@@ -210,7 +210,6 @@ void ota_task(void *pvParameter) {
       esp_http_client_config_t http_config = {
         .url = firmware_url,
         .cert_pem = (char *)server_cert_pem_start,
-        .keep_alive_enable = true,
       };
       esp_https_ota_config_t ota_config = {
         .http_config = &http_config,
