@@ -363,7 +363,7 @@ void app_main(void) {
   screen_draw(platzi_logo);
 
   char data_str[80] = {0};
-  sprintf(data_str, "     v%s", app_description->version);
+  sprintf(data_str, "    v%s", app_description->version);
   screen_print(data_str, 7);
 
   /* Prepare serial console for REPL */
