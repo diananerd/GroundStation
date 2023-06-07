@@ -236,13 +236,17 @@ void ota_task(void *pvParameter) {
         goto task_end;
       }
 
+      screen_print("Actualizando...", 0);
       while(true) {
           err = esp_https_ota_perform(https_ota_handle);
           if (err != ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
             break;
           }
-          screen_print(" Actualizando...", 7);
-          ESP_LOGI(TAG, "Image bytes read: %d", esp_https_ota_get_image_len_read(https_ota_handle));
+          int bytes_len = esp_https_ota_get_image_len_read(https_ota_handle);
+          char bytes_str[24];
+          sprintf(bytes_str, "%d", bytes_len);
+          screen_print(bytes_str, 1);
+          ESP_LOGI(TAG, "Image bytes read: %d", bytes_len);
       }
 
       if (esp_https_ota_is_complete_data_received(https_ota_handle) != true) {
