@@ -24,7 +24,7 @@
 #define BASE_FIRMWARE_UPGRADE_URL "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/version.txt" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware"
 #define FIRMWARE_STR "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin"
 #define HTTP_REQUEST_SIZE 16384
-#define OTA_WAIT_PERIOD_MS 2500 // 300000 // Fetch OTA Updates every 5 minutes
+#define OTA_WAIT_PERIOD_MS 30000 // Fetch OTA Updates every 5 minutes
 #define MAX_OTA_SIZE 4194304 // 4MB
 
 static const char* TAG = "GroundStation";
@@ -191,41 +191,45 @@ static esp_err_t validate_image_header(esp_app_desc_t *new_app_info)
 
 void ota_task(void *pvParameter) {
     ESP_LOGI(TAG, "Starting OTA Task");
+    ESP_LOGI(TAG, "Fetch last firmware version...");
+    esp_err_t ota_finish_err = ESP_OK;
+
+    char *version;
+    size_t url_size = 256;
+    char firmware_url[url_size];
+
+    esp_http_client_config_t http_config = {
+      .cert_pem = (char *)server_cert_pem_start,
+    };
+    esp_https_ota_config_t ota_config = {
+      .http_config = &http_config,
+      .partial_http_download = true,
+      .max_http_request_size = HTTP_REQUEST_SIZE,
+    };
+
+    esp_https_ota_handle_t https_ota_handle = NULL;
+    esp_app_desc_t app_desc;
+    esp_err_t err;
+
     while (true) {
-      ESP_LOGI(TAG, "Fetch last firmware version...");
-      esp_err_t ota_finish_err = ESP_OK;
-
-      size_t url_size = 256;
-      char firmware_url[url_size];
-
-      char *version = get_firmware_version(BASE_FIRMWARE_UPGRADE_URL);
+      ESP_LOGI(TAG, "Search for OTA updates...");
+      version = get_firmware_version(BASE_FIRMWARE_UPGRADE_URL);
       ESP_LOGI(TAG, "Last firmware version: %s", version);
       if (strcmp(version, "") == 0) {
-        goto task_end;
+        ESP_LOGI(TAG, "Version unknown");
+        goto abort_update;
       }
 
       sprintf(firmware_url, FIRMWARE_STR, version);
       ESP_LOGI(TAG, "Firmware URL: %s", firmware_url);
+      http_config.url = firmware_url;
 
-      esp_http_client_config_t http_config = {
-        .url = firmware_url,
-        .cert_pem = (char *)server_cert_pem_start,
-      };
-      esp_https_ota_config_t ota_config = {
-        .http_config = &http_config,
-        .partial_http_download = true,
-        .max_http_request_size = HTTP_REQUEST_SIZE,
-      };
-
-      ESP_LOGI(TAG, "Search for OTA updates...");
-      esp_https_ota_handle_t https_ota_handle = NULL;
-      esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
+      err = esp_https_ota_begin(&ota_config, &https_ota_handle);
       if (err != ESP_OK) {
         ESP_LOGE(TAG, "ESP HTTPS OTA Begin failed");
         goto abort_update;
       }
 
-      esp_app_desc_t app_desc;
       err = esp_https_ota_get_img_desc(https_ota_handle, &app_desc);
       if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_https_ota_read_img_desc failed");
@@ -234,11 +238,12 @@ void ota_task(void *pvParameter) {
 
       err = validate_image_header(&app_desc);
       if (err != ESP_OK) {
-        if (err != ESP_ERR_INVALID_VERSION) {
-          ESP_LOGE(TAG, "image header verification failed");
+        ESP_LOGI(TAG, "image header verification failed");
+        if (err == ESP_ERR_INVALID_VERSION) {
+          ESP_LOGI(TAG, "image header equal versions");
           goto abort_update;
         }
-        goto task_end;
+        goto abort_update;
       }
 
       screen_clear();
@@ -274,9 +279,9 @@ void ota_task(void *pvParameter) {
         }
       }
 abort_update:
+      ESP_LOGI(TAG, "ESP_HTTPS_OTA upgrade failed");
       esp_https_ota_abort(https_ota_handle);
-      ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed");
-task_end:
+      ESP_LOGI(TAG, "OTA task end");
       vTaskDelay(OTA_WAIT_PERIOD_MS / portTICK_PERIOD_MS);
     }
 }
