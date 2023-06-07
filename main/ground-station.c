@@ -23,7 +23,7 @@
 #define BASE_FIRMWARE_UPGRADE_URL "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/version.txt" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware"
 #define FIRMWARE_STR "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin"
 #define HTTP_REQUEST_SIZE 16384
-#define OTA_WAIT_PERIOD_MS 5000 //1000 * 30 // (1000 * 60 * 1)
+#define OTA_WAIT_PERIOD_MS 300000 // Fetch OTA Updates every 5 minutes
 
 static const char* TAG = "GroundStation";
 extern const char server_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
