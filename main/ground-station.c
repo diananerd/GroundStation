@@ -17,6 +17,7 @@
 #include "api_calls.h"
 #include "cmd_api.h"
 #include "ssd1306.h"
+#include "lora.h"
 
 #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_HTTP_OUTPUT_BUFFER 512
@@ -27,10 +28,15 @@
 #define OTA_WAIT_PERIOD_MS 30000 // Fetch OTA Updates every 5 minutes
 #define MAX_OTA_SIZE 4194304 // 4MB
 
+#define LORA_MESSAGE_LENGTH 240
+
 static const char* TAG = "GroundStation";
 extern const char server_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
 extern const char server_cert_pem_end[] asm("_binary_amazonaws_com_root_cert_pem_end");
 SSD1306_t screen;
+uint8_t msg[LORA_MESSAGE_LENGTH];
+int packets = 0;
+int rssi = 0;
 
 void screen_init() {
   i2c_master_init(&screen, CONFIG_SDA_GPIO, CONFIG_SCL_GPIO, CONFIG_RESET_GPIO);
@@ -54,6 +60,44 @@ void screen_print_big(char * str, int page) {
 
 void screen_draw(uint8_t *img) {
   ssd1306_bitmaps(&screen, 0, 0, img, 128, 64, false);
+}
+
+void task_rx(void *p) {
+  char packets_count[64];
+  char rssi_str[64];
+  int len = 0;
+  for(;;) {
+    lora_receive();
+    while(lora_received()) {
+      len = lora_receive_packet(msg, LORA_MESSAGE_LENGTH);
+      msg[len] = 0;
+
+      rssi = lora_packet_rssi();
+      packets++;
+
+      sprintf(packets_count, "Count: %d", packets);
+      sprintf(rssi_str, "RSSI: %d dBm", rssi);
+      screen_clear();
+      screen_print(packets_count, 0);
+      screen_print(rssi_str, 1);
+    }
+    vTaskDelay(1);
+  }
+}
+
+void task_tx(void *p) {
+  for(;;) {
+    
+  }
+}
+
+void lora_config_init() {
+  printf("lora config init!\n");
+  lora_init();
+  lora_set_frequency(433e6);
+  lora_enable_crc();
+  xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
+  xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
 }
 
 esp_err_t _http_get_event_handler(esp_http_client_event_t *evt) {
