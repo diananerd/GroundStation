@@ -51,21 +51,33 @@ bool get_tokens(char *access_token, char *refresh_token) {
         refresh_token[refresh_token_len] = '\0';
         ESP_LOGI(TAG, "refresh token: %s", refresh_token);
     }
-    ESP_LOGI(TAG, "NVS recovered session!");
-    ESP_LOGI(TAG, "NVS recovered session { access_token: %s, refresh_token: %s }", access_token, refresh_token);
+    if (access_token_len || refresh_token_len) {
+        ESP_LOGI(TAG, "NVS recovered session");
+    } else {
+        ESP_LOGI(TAG, "NVS session not found");
+    }
     return 0;
 }
 
-bool save_tokens(char* access_token, char* refresh_token) {
-    ESP_LOGI(TAG, "Save tokens to NVS");
-    int32_t token_len = (int32_t)strlen(access_token);
-    int32_t refresh_len = (int32_t)strlen(refresh_token);
-    ESP_LOGI(TAG, "Save access_token to nvs: %s, len: %li", access_token, token_len);
-    ESP_ERROR_CHECK(nvs_set_i32(session, "access_len", token_len));
-    ESP_ERROR_CHECK(nvs_set_str(session, "access_token", access_token));
-    ESP_LOGI(TAG, "Save refresh_token to nvs: %s, len: %li", refresh_token, refresh_len);
-    ESP_ERROR_CHECK(nvs_set_i32(session, "refresh_len", refresh_len));
-    ESP_ERROR_CHECK(nvs_set_str(session, "refresh_token", refresh_token));
+bool save_token(char* token_name, char* token) {
+    int32_t token_len = (int32_t)strlen(token);
+    ESP_LOGI(TAG, "Save %s to nvs: %s, len: %li", token_name, token, token_len);
+    if (strcmp(token_name, "access_token") == 0) {
+        ESP_ERROR_CHECK(nvs_set_i32(session, "access_len", token_len));
+        ESP_ERROR_CHECK(nvs_set_str(session, "access_token", token));
+    } else if (strcmp(token_name, "refresh_token")  == 0) {
+        ESP_ERROR_CHECK(nvs_set_i32(session, "refresh_len", token_len));
+        ESP_ERROR_CHECK(nvs_set_str(session, "refresh_token", token));
+    } else {
+        ESP_LOGI(TAG, "Unknown token name: %s", token_name);
+    }
+    return 0;
+}
+
+bool clear_session() {
+    ESP_LOGI(TAG, "Clear session in NVS");
+    save_token("access_token", "");
+    save_token("refresh_token", "");
     return 0;
 }
 
@@ -156,13 +168,14 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-bool ping_url(const char *url, int timeout_ms) {
-    printf("Ping url: %s, timeout: %ims\n", url, timeout_ms);
+bool get_url(const char *url, int timeout_ms) {
+    printf("Get url: %s, timeout: %ims\n", url, timeout_ms);
     esp_http_client_config_t config = {
         .url = url,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .cert_pem = platzi_com_root_cert_pem_start,
         .event_handler = _http_event_handler,
+        .timeout_ms = timeout_ms,
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_err_t err = esp_http_client_perform(client);
@@ -214,7 +227,7 @@ void get_token_task(void *pvParameter) {
     int request_wait_time_ms = interval * 1000;
     while(true) {
         while(true) {
-            // Fetch
+            // Fetch tokens
             char url[MAX_URL_SIZE] = "https://api-sls.platzi.com/prod/space-api/auth/token?code=";
             strcat(url, code);
             ESP_LOGI(TAG, "Get token url: %s\n", url);
@@ -229,6 +242,7 @@ void get_token_task(void *pvParameter) {
                 ESP_LOGI(TAG, "message=%s", message);
             }
             if (cJSON_GetObjectItem(json, "error")) {
+                ESP_LOGI(TAG, "Get tokens error, show error...");
                 char *error = cJSON_GetObjectItem(json,"error")->valuestring;
                 ESP_LOGI(TAG, "error=%s", error);
                 if (strcmp(error, "validation_error") == 0) {
@@ -243,38 +257,37 @@ void get_token_task(void *pvParameter) {
                 } else if (strcmp(error, "slow_down") == 0) {
                     request_wait_time_ms += REQUEST_WAIT_TIME_INCREMENT_MS;
                     ESP_LOGI(TAG, "Slow down error, new time: %ims", request_wait_time_ms);
-                    goto get_token_task_end;
                 } else if (strcmp(error, "authorization_pending") == 0) {
                     ESP_LOGI(TAG, "Authorization pending");
-                    goto get_token_task_end;
                 } else if (strcmp(error, "") != 0) {
                     ESP_LOGI(TAG, "Unknown error: %s", error);
                     break;
                 }
-            }
+            } else {
+                ESP_LOGI(TAG, "Get tokens success, save tokens...");
+                char* access_token = {0};
+                char* refresh_token = {0};
 
-            char* access_token = {0};
-            char* refresh_token = {0};
-
-            if (cJSON_GetObjectItem(json, "access_token")) {
-                char *access = cJSON_GetObjectItem(json, "access_token")->valuestring;
-                access_token = (char *)malloc(strlen(access)+1);
-        		strcpy(access_token, access);
-                ESP_LOGI(TAG, "access_token=%s", access_token);
-            }
-            if (cJSON_GetObjectItem(json, "refresh_token")) {
-                char *refresh = cJSON_GetObjectItem(json, "refresh_token")->valuestring;
-                refresh_token = (char *)malloc(strlen(refresh)+1);
-        		strcpy(refresh_token, refresh);
-                ESP_LOGI(TAG, "refresh_token=%s", refresh_token);
+                if (cJSON_GetObjectItem(json, "access_token")) {
+                    char *access = cJSON_GetObjectItem(json, "access_token")->valuestring;
+                    access_token = (char *)malloc(strlen(access)+1);
+                    strcpy(access_token, access);
+                    ESP_LOGI(TAG, "access_token=%s", access_token);
+                    save_token("access_token", access_token);
+                }
+                if (cJSON_GetObjectItem(json, "refresh_token")) {
+                    char *refresh = cJSON_GetObjectItem(json, "refresh_token")->valuestring;
+                    refresh_token = (char *)malloc(strlen(refresh)+1);
+                    strcpy(refresh_token, refresh);
+                    ESP_LOGI(TAG, "refresh_token=%s", refresh_token);
+                    save_token("refresh_token", refresh_token);
+                }
+                ESP_LOGI(TAG, "Tokens saved, delete get token task");
+                vTaskDelete(NULL);
             }
 
             cJSON_Delete(json);
 
-            ESP_LOGI(TAG, "Get tokens success, save tokens...");
-            save_tokens(access_token, refresh_token);
-
-get_token_task_end:
             ESP_LOGI(TAG, "End of get task cycle, wait for next");
             vTaskDelay(request_wait_time_ms / portTICK_PERIOD_MS);
         }
