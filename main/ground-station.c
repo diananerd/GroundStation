@@ -426,11 +426,14 @@ void app_main(void) {
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;
   esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
+  repl_config.task_stack_size = (1024 * 8);
   repl_config.prompt = ">";
 
   initialize_nvs();
   initialize_wifi();
   initialize_api();
+
+  nvs_session_init();
 
   /* Register commands */
   esp_console_register_help_command();

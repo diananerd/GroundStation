@@ -34,6 +34,27 @@ static int ping(int argc, char **argv) {
     return 0;
 }
 
+static struct {
+    struct arg_int *timeout;
+    struct arg_end *end;
+} sync_args;
+
+static int sync_handler(int argc, char **argv) {
+    int nerrors = arg_parse(argc, argv, (void **) &sync_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, sync_args.end, argv[0]);
+        return 1;
+    }
+    ESP_LOGI(__func__, "Sync account");
+    bool err = sync_account();
+    if (err) {
+        ESP_LOGW(__func__, "Connection timed out");
+        return 1;
+    }
+    ESP_LOGI(__func__, "Sync end");
+    return 0;
+}
+
 void register_api(void) {
     ping_args.url = arg_str1(NULL, NULL, "<url>", "Site url");
     ping_args.timeout = arg_int0("t", "timeout", "<t>", "Connection timeout, ms");
@@ -47,5 +68,17 @@ void register_api(void) {
         .argtable = &ping_args
     };
 
+    sync_args.timeout = arg_int0("t", "timeout", "<t>", "Connection timeout, ms");
+    sync_args.end = arg_end(2);
+
+    const esp_console_cmd_t sync_cmd = {
+        .command = "sync",
+        .help = "Sync account",
+        .hint = NULL,
+        .func = &sync_handler,
+        .argtable = &sync_args
+    };
+
     ESP_ERROR_CHECK( esp_console_cmd_register(&ping_cmd) );
+    ESP_ERROR_CHECK( esp_console_cmd_register(&sync_cmd) );
 }
