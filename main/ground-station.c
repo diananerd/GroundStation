@@ -25,15 +25,18 @@
 #define BASE_FIRMWARE_UPGRADE_URL "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/version.txt" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware"
 #define FIRMWARE_STR "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin"
 #define HTTP_REQUEST_SIZE 16384
-#define OTA_WAIT_PERIOD_MS 30000 // Fetch OTA Updates every 5 minutes
+#define OTA_WAIT_PERIOD_MS 300000 // Fetch OTA Updates every 5 minutes
 #define MAX_OTA_SIZE 4194304 // 4MB
 
 #define LORA_MESSAGE_LENGTH 240
 
 static const char* TAG = "GroundStation";
+
 extern const char server_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
 extern const char server_cert_pem_end[] asm("_binary_amazonaws_com_root_cert_pem_end");
+
 SSD1306_t screen;
+
 uint8_t msg[LORA_MESSAGE_LENGTH];
 int packets = 0;
 int rssi = 0;
@@ -63,14 +66,18 @@ void screen_draw(uint8_t *img) {
 }
 
 void task_rx(void *p) {
+  ESP_LOGI(TAG, "Start LoRa RX task...");
   char packets_count[64];
   char rssi_str[64];
   int len = 0;
-  for(;;) {
+  while(true) {
     lora_receive();
     while(lora_received()) {
+      ESP_LOGI(TAG, "New LoRa message received!");
       len = lora_receive_packet(msg, LORA_MESSAGE_LENGTH);
       msg[len] = 0;
+      ESP_LOG_BUFFER_HEX(TAG, msg, len);
+      ESP_LOGI(TAG, "LoRa msg: %s, len: %i", (char*)msg, len);
 
       rssi = lora_packet_rssi();
       packets++;
@@ -80,24 +87,33 @@ void task_rx(void *p) {
       screen_clear();
       screen_print(packets_count, 0);
       screen_print(rssi_str, 1);
+
+      char msg_code[6];
+      snprintf(msg_code, 6, "%.5s", (char*)msg);
+
+      if (strcmp(msg_code, "FO014") == 0) {
+        ESP_LOGI(TAG, "Starts with FO014, is the PlatziSat-1!");
+        char message[1024 * 8] = "";
+        sprintf(message, "{\"message\":\"%s\"}", (char*)msg);
+        ESP_LOGI(TAG, "JSON message: %s", message);
+        char res[240] = "";
+        http_post("https://api-sls.platzi.com/prod/space-api/messages/downlink", message, res);
+      } else {
+        ESP_LOGI(TAG, "Unknown origin message");
+      }
     }
     vTaskDelay(1);
-  }
-}
-
-void task_tx(void *p) {
-  for(;;) {
-    
   }
 }
 
 void lora_config_init() {
   printf("lora config init!\n");
   lora_init();
-  lora_set_frequency(433e6);
+  lora_set_frequency(401.7e6);
+  lora_set_spreading_factor(11);
+  lora_set_coding_rate(8);
+  lora_set_bandwidth(5);
   lora_enable_crc();
-  xTaskCreate(&task_rx, "task_rx", 2048, NULL, 5, NULL);
-  xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, NULL);
 }
 
 esp_err_t _http_get_event_handler(esp_http_client_event_t *evt) {
@@ -426,11 +442,15 @@ void app_main(void) {
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;
   esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
+  repl_config.task_stack_size = (1024 * 8);
   repl_config.prompt = ">";
 
   initialize_nvs();
   initialize_wifi();
   initialize_api();
+
+  nvs_session_init();
+  lora_config_init();
 
   /* Register commands */
   esp_console_register_help_command();
@@ -444,5 +464,6 @@ void app_main(void) {
   /* Run REPL */
   ESP_ERROR_CHECK(esp_console_start_repl(repl));
 
+  xTaskCreate(&task_rx, "task_rx", 1024 * 16, NULL, configMAX_PRIORITIES-1, NULL);
   xTaskCreate(&ota_task, "ota_task", 1024 * 8, NULL, 5, NULL);
 }
