@@ -31,12 +31,26 @@ char* get_token(char* token_name) {
     char* token = {0};
     int32_t token_len = 0;
     if (strcmp(token_name, "access_token") == 0) {
-        ESP_ERROR_CHECK(nvs_get_i32(session, "access_len", &token_len));
+        esp_err_t err = nvs_get_i32(session, "access_len", &token_len);
+        if (err != ESP_OK) {
+            ESP_LOGI(TAG, "Get token read len error");
+            if (err == ESP_ERR_NVS_NOT_FOUND) {
+                ESP_LOGI(TAG, "Not found");
+                return "";
+            }
+        }
         size_t token_size = token_len+1;
         token = (char*)malloc(token_size);
         ESP_ERROR_CHECK(nvs_get_str(session, "access_token", token, &token_size));
     } else if (strcmp(token_name, "refresh_token") == 0) {
-        ESP_ERROR_CHECK(nvs_get_i32(session, "refresh_len", &token_len));
+        esp_err_t err = nvs_get_i32(session, "refresh_len", &token_len);
+        if (err != ESP_OK) {
+            ESP_LOGI(TAG, "Get token read len error");
+            if (err == ESP_ERR_NVS_NOT_FOUND) {
+                ESP_LOGI(TAG, "Not found");
+                return "";
+            }
+        }
         size_t token_size = token_len+1;
         token = (char*)malloc(token_size);
         ESP_ERROR_CHECK(nvs_get_str(session, "refresh_token", token, &token_size));
