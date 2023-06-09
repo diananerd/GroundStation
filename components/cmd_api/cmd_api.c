@@ -54,6 +54,31 @@ static int get(int argc, char **argv) {
     return 0;
 }
 
+struct {
+    struct arg_int *timeout;
+    struct arg_str *url;
+    struct arg_str *body;
+    struct arg_end *end;
+} post_args;
+
+static int post(int argc, char **argv) {
+    int nerrors = arg_parse(argc, argv, (void **) &post_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, post_args.end, argv[0]);
+        return 1;
+    }
+    ESP_LOGI(__func__, "post %s to '%s'", post_args.body->sval[0], post_args.url->sval[0]);
+    char res[128] = "";
+    bool err = http_post(post_args.url->sval[0], post_args.body->sval[0], res);
+    if (err) {
+        ESP_LOGW(__func__, "Connection timed out");
+        return 1;
+    }
+    printf("res: %s\n", res);
+    ESP_LOGI(__func__, "post end");
+    return 0;
+}
+
 static struct {
     struct arg_end *end;
 } sync_args;
@@ -97,6 +122,19 @@ void register_api(void) {
         .argtable = &get_args
     };
 
+    post_args.url = arg_str1(NULL, NULL, "<url>", "Site url");
+    post_args.body = arg_str1("b", "body", "<body>", "Body string");
+    post_args.timeout = arg_int0("t", "timeout", "<t>", "Connection timeout, ms");
+    post_args.end = arg_end(2);
+
+    const esp_console_cmd_t post_cmd = {
+        .command = "post",
+        .help = "Send data to website by url",
+        .hint = NULL,
+        .func = &post,
+        .argtable = &post_args
+    };
+
     sync_args.end = arg_end(2);
 
     const esp_console_cmd_t sync_cmd = {
@@ -109,5 +147,6 @@ void register_api(void) {
 
     ESP_ERROR_CHECK( esp_console_cmd_register(&clear_cmd) );
     ESP_ERROR_CHECK( esp_console_cmd_register(&get_cmd) );
+    ESP_ERROR_CHECK( esp_console_cmd_register(&post_cmd) );
     ESP_ERROR_CHECK( esp_console_cmd_register(&sync_cmd) );
 }

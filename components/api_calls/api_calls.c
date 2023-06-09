@@ -26,32 +26,32 @@ int expires_in;
 
 nvs_handle_t session;
 
-bool get_tokens(char *access_token, char *refresh_token) {
-    ESP_LOGI(TAG, "Load tokens from NVS");
-    int32_t access_token_len = 0;
-    int32_t refresh_token_len = 0;
-    ESP_ERROR_CHECK(nvs_get_i32(session, "access_len", &access_token_len));
-    ESP_ERROR_CHECK(nvs_get_i32(session, "refresh_len", &refresh_token_len));
-    ESP_LOGI(TAG, "Access token len: %li", access_token_len);
-    ESP_LOGI(TAG, "Refresh token len: %li", refresh_token_len);
+char* get_token(char* token_name) {
+    ESP_LOGI(TAG, "Get token %s from NVS", token_name);
+    char* token = {0};
+    int32_t token_len = 0;
+    if (strcmp(token_name, "access_token") == 0) {
+        ESP_ERROR_CHECK(nvs_get_i32(session, "access_len", &token_len));
+        size_t token_size = token_len+1;
+        token = (char*)malloc(token_size);
+        ESP_ERROR_CHECK(nvs_get_str(session, "access_token", token, &token_size));
+    } else if (strcmp(token_name, "refresh_token") == 0) {
+        ESP_ERROR_CHECK(nvs_get_i32(session, "refresh_len", &token_len));
+        size_t token_size = token_len+1;
+        token = (char*)malloc(token_size);
+        ESP_ERROR_CHECK(nvs_get_str(session, "refresh_token", token, &token_size));
+    }
+    token[token_len] = '\0';
+    ESP_LOGI(TAG, "%s: %s", token_name, token);
+    return token;
+}
 
-    if (access_token_len) {
-        ESP_LOGI(TAG, "Access token available, length %li", access_token_len);
-        size_t access_token_size = access_token_len+1;
-        access_token = (char*)malloc(access_token_size);
-        ESP_ERROR_CHECK(nvs_get_str(session, "access_token", access_token, &access_token_size));
-        access_token[access_token_len] = '\0';
-        ESP_LOGI(TAG, "access token: %s", access_token);
-    }
-    if (refresh_token_len) {
-        ESP_LOGI(TAG, "Refresh token available, length %li", refresh_token_len);
-        size_t refresh_token_size = refresh_token_len+1;
-        refresh_token = (char*)malloc(refresh_token_size);
-        nvs_get_str(session, "refresh_token", refresh_token, &refresh_token_size);
-        refresh_token[refresh_token_len] = '\0';
-        ESP_LOGI(TAG, "refresh token: %s", refresh_token);
-    }
-    if (access_token_len || refresh_token_len) {
+bool get_tokens() {
+    ESP_LOGI(TAG, "Load tokens from NVS");
+    char* access_token = get_token("access_token");
+    char* refresh_token = get_token("refresh_token");
+    bool recovered_session = access_token != NULL || refresh_token != NULL;
+    if (recovered_session) {
         ESP_LOGI(TAG, "NVS recovered session");
     } else {
         ESP_LOGI(TAG, "NVS session not found");
@@ -85,9 +85,7 @@ void nvs_session_init() {
     ESP_LOGI(TAG, "NVS session init");
     nvs_flash_init();
     nvs_open("session", NVS_READWRITE, &session);
-    char* access = {0};
-    char* refresh = {0};
-    esp_err_t err = get_tokens(access, refresh);
+    esp_err_t err = get_tokens();
     if (err != ESP_OK) {
         ESP_LOGI(TAG, "Error on get tokens");
     }
@@ -191,7 +189,7 @@ bool get_url(const char *url, int timeout_ms) {
     return 0;
 }
 
-bool http_get(char* url, char* res) {
+bool http_get(const char* url, char* res) {
     ESP_LOGI(TAG, "HTTP GET %s buff_size: %i\n", url, DEFAULT_HTTP_BUF_SIZE);
     char local_response_buffer[DEFAULT_HTTP_BUF_SIZE] = {0};
     esp_http_client_config_t config = {
@@ -202,6 +200,51 @@ bool http_get(char* url, char* res) {
         .event_handler = _http_event_handler,
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_err_t err = esp_http_client_perform(client);
+
+    int status_code = esp_http_client_get_status_code(client);
+    uint64_t content_length = esp_http_client_get_content_length(client);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64, status_code, content_length);
+        ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
+        ESP_LOGI(TAG, "Decoded: %s", (char *)local_response_buffer);
+        strcpy(res, local_response_buffer);
+    } else {
+        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
+    }
+    esp_http_client_cleanup(client);
+    return 0;
+}
+
+bool http_post(const char* url, const char* body, char* res) {
+    ESP_LOGI(TAG, "HTTP POST %s buff_size: %i\n", url, DEFAULT_HTTP_BUF_SIZE);
+    char local_response_buffer[DEFAULT_HTTP_BUF_SIZE] = {0};
+    esp_http_client_config_t config = {
+        .url = url,
+        .method = HTTP_METHOD_POST,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,
+        .cert_pem = platzi_com_root_cert_pem_start,
+        .user_data = local_response_buffer,
+        .event_handler = _http_event_handler,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    char* access_token = get_token("access_token");
+
+    if (access_token != NULL) {
+        ESP_LOGI(TAG, "Add authorization header: %s", access_token);
+        int bearer_len = strlen(access_token) + 8; // "Bearer " = 7 chars + 1 end char
+        char bearer_token[bearer_len];
+        sprintf(bearer_token, "Bearer %s", access_token);
+        bearer_token[bearer_len] = '\0';
+        esp_http_client_set_header(client, "Authorization", bearer_token);
+    } else {
+        ESP_LOGI(TAG, "Token not found, skip authorization header");
+    }
+
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, body, strlen(body));
+
     esp_err_t err = esp_http_client_perform(client);
 
     int status_code = esp_http_client_get_status_code(client);
@@ -302,7 +345,7 @@ bool sync_account() {
     ESP_LOGI(TAG, "Get device code");
     char url[] = "https://api-sls.platzi.com/prod/space-api/auth/code";
     ESP_LOGI(TAG, "Sync account url: %s\n", url);
-    char resp[DEFAULT_HTTP_BUF_SIZE] = {0};
+    char resp[DEFAULT_HTTP_BUF_SIZE] = "";
     http_get(url, resp);
     printf("device_code: %s\n", resp);
     cJSON *json = cJSON_Parse(resp);
