@@ -88,10 +88,9 @@ bool save_token(char* token_name, char* token) {
     return 0;
 }
 
-bool clear_session() {
-    ESP_LOGI(TAG, "Clear session in NVS");
-    save_token("access_token", "");
-    save_token("refresh_token", "");
+bool clear_storage() {
+    ESP_LOGI(TAG, "Clear NVS partition");
+    nvs_flash_erase();
     return 0;
 }
 

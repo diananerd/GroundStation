@@ -22,8 +22,8 @@ static int clear(int argc, char **argv) {
         arg_print_errors(stderr, clear_args.end, argv[0]);
         return 1;
     }
-    ESP_LOGI(__func__, "Clear session tokens from NVS");
-    bool err = clear_session();
+    ESP_LOGI(__func__, "Clear NVS storage");
+    bool err = clear_storage();
     if (err) {
         ESP_LOGW(__func__, "Clear error");
         return 1;
@@ -104,7 +104,7 @@ void register_api(void) {
 
     const esp_console_cmd_t clear_cmd = {
         .command = "clear",
-        .help = "Clear session tokens from storage",
+        .help = "Clear all storage",
         .hint = NULL,
         .func = &clear,
         .argtable = &clear_args
