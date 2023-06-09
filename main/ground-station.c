@@ -96,8 +96,8 @@ void task_rx(void *p) {
         char message[1024 * 8] = "";
         sprintf(message, "{\"message\":\"%s\"}", (char*)msg);
         ESP_LOGI(TAG, "JSON message: %s", message);
-        // char res[240] = "";
-        // http_post("https://api-sls.platzi.com/prod/space-api/messages/downlink", message, res);
+        char res[240] = "";
+        http_post("https://api-sls.platzi.com/prod/space-api/messages/downlink", message, res);
       } else {
         ESP_LOGI(TAG, "Unknown origin message");
       }
