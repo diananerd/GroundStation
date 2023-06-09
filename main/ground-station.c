@@ -28,7 +28,7 @@
 #define OTA_WAIT_PERIOD_MS 300000 // Fetch OTA Updates every 5 minutes
 #define MAX_OTA_SIZE 4194304 // 4MB
 
-#define LORA_MESSAGE_LENGTH 240
+#define LORA_MESSAGE_LENGTH 190
 
 static const char* TAG = "GroundStation";
 
@@ -112,7 +112,8 @@ void lora_config_init() {
   lora_set_frequency(401.7e6);
   lora_set_spreading_factor(11);
   lora_set_coding_rate(8);
-  lora_set_bandwidth(5);
+  lora_set_bandwidth(125e3);
+  lora_set_sync_word(0x12);
   lora_enable_crc();
 }
 
