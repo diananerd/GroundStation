@@ -6,7 +6,7 @@ extern "C" {
 
 // Register API Calls functions
 void nvs_session_init();
-bool clear_session();
+bool clear_storage();
 bool get_url(const char *url, int timeout_ms);
 bool http_get(const char *url, char* res);
 bool http_post(const char *url, const char *body, char* res);

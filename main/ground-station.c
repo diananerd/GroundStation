@@ -437,7 +437,7 @@ void app_main(void) {
   screen_draw(gs_logo);
 
   char data_str[80] = {0};
-  sprintf(data_str, "    v%s", app_description->version);
+  sprintf(data_str, "     v%s", app_description->version);
   screen_print(data_str, 7);
 
   /* Prepare serial console for REPL */
@@ -466,5 +466,8 @@ void app_main(void) {
   ESP_ERROR_CHECK(esp_console_start_repl(repl));
 
   xTaskCreate(&task_rx, "task_rx", 1024 * 16, NULL, configMAX_PRIORITIES-1, NULL);
+
+  ESP_LOGI(TAG, "Wait 5 seconds after start OTA updates task...");
+  vTaskDelay(5000 / portTICK_PERIOD_MS);
   xTaskCreate(&ota_task, "ota_task", 1024 * 8, NULL, 5, NULL);
 }
