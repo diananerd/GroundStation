@@ -425,7 +425,10 @@ bool sync_account() {
 	}
     cJSON_Delete(json);
     if (getTokenTaskHandle != NULL) {
+        ESP_LOGI(TAG, "sync delete previous token task and create new");
         vTaskDelete(getTokenTaskHandle);
+    } else {
+        ESP_LOGI(TAG, "sync create first token task");
     }
     xTaskCreate(&get_token_task, "get_token_task", 1024 * 8, NULL, 5, &getTokenTaskHandle);
     return 0;
