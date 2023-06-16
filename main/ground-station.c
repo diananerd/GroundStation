@@ -19,11 +19,14 @@
 #include "ssd1306.h"
 #include "lora.h"
 
+#define MI_VARIABLE CONFIG_MI_VARIABLE
+
 #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_HTTP_OUTPUT_BUFFER 512
 
-#define BASE_FIRMWARE_UPGRADE_URL "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/version.txt" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware"
-#define FIRMWARE_STR "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin" // "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com/firmware/%s/ground-station.bin"
+#define BASE_FIRMWARE_UPGRADE_URL CONFIG_BASE_FIRMWARE_URL "/firmware/version.txt"
+#define FIRMWARE_STR CONFIG_BASE_FIRMWARE_URL "/firmware/%s/ground-station.bin"
+#define SAVE_MESSAGE_URL CONFIG_SAVE_MESSAGE_URL
 #define HTTP_REQUEST_SIZE 16384
 #define OTA_WAIT_PERIOD_MS 300000 // Fetch OTA Updates every 5 minutes
 #define MAX_OTA_SIZE 4194304 // 4MB
@@ -40,6 +43,12 @@ SSD1306_t screen;
 uint8_t msg[LORA_MESSAGE_LENGTH];
 int packets = 0;
 int rssi = 0;
+
+void log_env_variables() {
+  ESP_LOGI(TAG, "BASE_FIRMWARE_UPGRADE_URL=%s", BASE_FIRMWARE_UPGRADE_URL);
+  ESP_LOGI(TAG, "FIRMWARE_STR=%s", FIRMWARE_STR);
+  ESP_LOGI(TAG, "SAVE_MESSAGE_URL=%s", SAVE_MESSAGE_URL);
+}
 
 void screen_init() {
   i2c_master_init(&screen, CONFIG_SDA_GPIO, CONFIG_SCL_GPIO, CONFIG_RESET_GPIO);
@@ -82,22 +91,25 @@ void task_rx(void *p) {
       rssi = lora_packet_rssi();
       packets++;
 
-      sprintf(packets_count, "Count: %d", packets);
-      sprintf(rssi_str, "RSSI: %d dBm", rssi);
-      screen_clear();
-      screen_print(packets_count, 0);
-      screen_print(rssi_str, 1);
-
       char msg_code[6];
       snprintf(msg_code, 6, "%.5s", (char*)msg);
 
       if (strcmp(msg_code, "FO014") == 0) {
         ESP_LOGI(TAG, "Starts with FO014, is the PlatziSat-1!");
+        sprintf(packets_count, "Recibiendo mensaje...");
+        sprintf(rssi_str, "RSSI: %d dBm", rssi);
+        screen_clear();
+        screen_print(packets_count, 0);
+        screen_print(rssi_str, 1);
         char message[1024 * 8] = "";
         sprintf(message, "{\"message\":\"%s\"}", (char*)msg);
         ESP_LOGI(TAG, "JSON message: %s", message);
         char res[240] = "";
-        http_post("https://api-sls.platzi.com/prod/space-api/messages/downlink", message, res);
+        http_post(SAVE_MESSAGE_URL, message, res);
+        screen_clear();
+        packets_count[64] = '\0';
+        sprintf(packets_count, "Mensajes: %d", packets);
+        screen_print(packets_count, 0);
       } else {
         ESP_LOGI(TAG, "Unknown origin message");
       }
@@ -205,6 +217,7 @@ void removeChar(char *str, char c) {
 
 char* get_firmware_version(const char *version_url) {
     char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};
+    ESP_LOGI(TAG, "version_url=%s", version_url);
     esp_http_client_config_t config = {
         .url = version_url,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
@@ -439,6 +452,8 @@ void app_main(void) {
   char data_str[80] = {0};
   sprintf(data_str, "     v%s", app_description->version);
   screen_print(data_str, 7);
+
+  log_env_variables();
 
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;

@@ -10,7 +10,6 @@
 #include "nvs_flash.h"
 #include "cJSON.h"
 
-#define SPACE_API_BASE_URL "https://api-sls.platzi.com/prod/space-api"
 #define MAX_URL_SIZE 512
 #define REQUEST_WAIT_TIME_INCREMENT_MS 2500
 
@@ -25,7 +24,7 @@ int interval;
 int expires_in;
 
 nvs_handle_t session;
-TaskHandle_t getTokenTaskHandle = NULL;
+TaskHandle_t getTokenTaskHandle;
 
 char* get_token(char* token_name) {
     ESP_LOGI(TAG, "Get token %s from NVS", token_name);
@@ -261,7 +260,7 @@ void get_token_task(void *pvParameter) {
                     save_token("refresh_token", refresh_token);
                 }
                 ESP_LOGI(TAG, "Tokens saved, delete get token task");
-                vTaskDelete(NULL);
+                vTaskDelete(getTokenTaskHandle);
             }
 
             cJSON_Delete(json);
@@ -271,7 +270,7 @@ void get_token_task(void *pvParameter) {
         }
 
         ESP_LOGI(TAG, "Delete get token task");
-        vTaskDelete(NULL);
+        vTaskDelete(getTokenTaskHandle);
     }
 }
 
@@ -426,7 +425,7 @@ bool sync_account() {
     cJSON_Delete(json);
     if (getTokenTaskHandle != NULL) {
         ESP_LOGI(TAG, "sync delete previous token task and create new");
-        vTaskDelete(getTokenTaskHandle);
+        // vTaskDelete(getTokenTaskHandle);
     } else {
         ESP_LOGI(TAG, "sync create first token task");
     }
