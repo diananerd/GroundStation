@@ -96,7 +96,7 @@ void task_rx(void *p) {
 
       if (strcmp(msg_code, "FO014") == 0) {
         ESP_LOGI(TAG, "Starts with FO014, is the PlatziSat-1!");
-        sprintf(packets_count, "Recibiendo mensaje...");
+        sprintf(packets_count, "Recibiendo...");
         sprintf(rssi_str, "RSSI: %d dBm", rssi);
         screen_clear();
         screen_print(packets_count, 0);
