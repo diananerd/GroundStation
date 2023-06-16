@@ -25,6 +25,7 @@ int interval;
 int expires_in;
 
 nvs_handle_t session;
+TaskHandle_t getTokenTaskHandle = NULL;
 
 char* get_token(char* token_name) {
     ESP_LOGI(TAG, "Get token %s from NVS", token_name);
@@ -179,113 +180,34 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-bool get_url(const char *url, int timeout_ms) {
-    printf("Get url: %s, timeout: %ims\n", url, timeout_ms);
-    esp_http_client_config_t config = {
-        .url = url,
-        .transport_type = HTTP_TRANSPORT_OVER_SSL,
-        .cert_pem = platzi_com_root_cert_pem_start,
-        .event_handler = _http_event_handler,
-        .timeout_ms = timeout_ms,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    esp_err_t err = esp_http_client_perform(client);
-
-    int status_code = esp_http_client_get_status_code(client);
-    uint64_t content_length = esp_http_client_get_content_length(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64, status_code, content_length);
-    } else {
-        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
-    }
-    esp_http_client_cleanup(client);
-    return 0;
-}
-
-bool http_get(const char* url, char* res) {
-    ESP_LOGI(TAG, "HTTP GET %s buff_size: %i\n", url, DEFAULT_HTTP_BUF_SIZE);
-    char local_response_buffer[DEFAULT_HTTP_BUF_SIZE] = {0};
-    esp_http_client_config_t config = {
-        .url = url,
-        .transport_type = HTTP_TRANSPORT_OVER_SSL,
-        .cert_pem = platzi_com_root_cert_pem_start,
-        .user_data = local_response_buffer,
-        .event_handler = _http_event_handler,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    esp_err_t err = esp_http_client_perform(client);
-
-    int status_code = esp_http_client_get_status_code(client);
-    uint64_t content_length = esp_http_client_get_content_length(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64, status_code, content_length);
-        ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
-        ESP_LOGI(TAG, "Decoded: %s", (char *)local_response_buffer);
-        strcpy(res, local_response_buffer);
-    } else {
-        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
-    }
-    esp_http_client_cleanup(client);
-    return 0;
-}
-
-bool http_post(const char* url, const char* body, char* res) {
-    ESP_LOGI(TAG, "HTTP POST %s buff_size: %i\n", url, DEFAULT_HTTP_BUF_SIZE);
-    char local_response_buffer[DEFAULT_HTTP_BUF_SIZE] = {0};
-    esp_http_client_config_t config = {
-        .url = url,
-        .method = HTTP_METHOD_POST,
-        .transport_type = HTTP_TRANSPORT_OVER_SSL,
-        .cert_pem = platzi_com_root_cert_pem_start,
-        .user_data = local_response_buffer,
-        .event_handler = _http_event_handler,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-    char* access_token = get_token("access_token");
-
-    if (access_token != NULL) {
-        ESP_LOGI(TAG, "Add authorization header: %s", access_token);
-        int bearer_len = strlen(access_token) + 8; // "Bearer " = 7 chars + 1 end char
-        char bearer_token[bearer_len];
-        sprintf(bearer_token, "Bearer %s", access_token);
-        bearer_token[bearer_len] = '\0';
-        esp_http_client_set_header(client, "Authorization", bearer_token);
-    } else {
-        ESP_LOGI(TAG, "Token not found, skip authorization header");
-    }
-
-    esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_post_field(client, body, strlen(body));
-
-    esp_err_t err = esp_http_client_perform(client);
-
-    int status_code = esp_http_client_get_status_code(client);
-    uint64_t content_length = esp_http_client_get_content_length(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64, status_code, content_length);
-        ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
-        ESP_LOGI(TAG, "Decoded: %s", (char *)local_response_buffer);
-        strcpy(res, local_response_buffer);
-    } else {
-        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
-    }
-    esp_http_client_cleanup(client);
-    return 0;
-}
-
 void get_token_task(void *pvParameter) {
     // Poll tokens
     ESP_LOGI(TAG, "Starting Get Token Task");
-    ESP_LOGI(TAG, "Device code: %ss...", code);
+    char* refresh_token = get_token("refresh_token");
+    ESP_LOGI(TAG, "Check if exist previous refresh_token...");
+    if (refresh_token != NULL && strlen(refresh_token)) {
+        ESP_LOGI(TAG, "Refresh token %s", refresh_token);
+    } else {
+        ESP_LOGI(TAG, "Device code: %ss...", code);
+    }
     ESP_LOGI(TAG, "Polling every: %is...", interval);
     ESP_LOGI(TAG, "Expiration in: %ims...", expires_in);
     int request_wait_time_ms = interval * 1000;
     while(true) {
         while(true) {
             // Fetch tokens
-            char url[MAX_URL_SIZE] = "https://api-sls.platzi.com/prod/space-api/auth/token?code=";
-            strcat(url, code);
+            char url[MAX_URL_SIZE] = "https://api-sls.platzi.com/prod/space-api/auth/token?";
+
+            if (refresh_token != NULL && strlen(refresh_token)) {
+                ESP_LOGI(TAG, "Use refresh_token");
+                strcat(url, "refresh_token=");
+                strcat(url, refresh_token);
+            } else {
+                ESP_LOGI(TAG, "Use device_code");
+                strcat(url, "code=");
+                strcat(url, code);
+            }
+
             ESP_LOGI(TAG, "Get token url: %s\n", url);
 
             char resp[DEFAULT_HTTP_BUF_SIZE] = {0};
@@ -353,8 +275,127 @@ void get_token_task(void *pvParameter) {
     }
 }
 
+bool get_url(const char *url, int timeout_ms) {
+    printf("Get url: %s, timeout: %ims\n", url, timeout_ms);
+    esp_http_client_config_t config = {
+        .url = url,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,
+        .cert_pem = platzi_com_root_cert_pem_start,
+        .event_handler = _http_event_handler,
+        .timeout_ms = timeout_ms,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_err_t err = esp_http_client_perform(client);
+
+    int status_code = esp_http_client_get_status_code(client);
+    uint64_t content_length = esp_http_client_get_content_length(client);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64, status_code, content_length);
+        if (status_code == 401) {
+            ESP_LOGI(TAG, "Unauthorized request... renew token");
+            if (getTokenTaskHandle != NULL) {
+                vTaskDelete(getTokenTaskHandle);
+            }
+            xTaskCreate(&get_token_task, "get_token_task", 1024 * 8, NULL, 5, &getTokenTaskHandle);
+        }
+    } else {
+        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
+    }
+    esp_http_client_cleanup(client);
+    return 0;
+}
+
+bool http_get(const char* url, char* res) {
+    ESP_LOGI(TAG, "HTTP GET %s buff_size: %i\n", url, DEFAULT_HTTP_BUF_SIZE);
+    char local_response_buffer[DEFAULT_HTTP_BUF_SIZE] = {0};
+    esp_http_client_config_t config = {
+        .url = url,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,
+        .cert_pem = platzi_com_root_cert_pem_start,
+        .user_data = local_response_buffer,
+        .event_handler = _http_event_handler,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_err_t err = esp_http_client_perform(client);
+
+    int status_code = esp_http_client_get_status_code(client);
+    uint64_t content_length = esp_http_client_get_content_length(client);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64, status_code, content_length);
+        ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
+        ESP_LOGI(TAG, "Decoded: %s", (char *)local_response_buffer);
+        strcpy(res, local_response_buffer);
+        if (status_code == 401) {
+            ESP_LOGI(TAG, "Unauthorized request... renew token");
+            if (getTokenTaskHandle != NULL) {
+                vTaskDelete(getTokenTaskHandle);
+            }
+            xTaskCreate(&get_token_task, "get_token_task", 1024 * 8, NULL, 5, &getTokenTaskHandle);
+        }
+    } else {
+        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
+    }
+    esp_http_client_cleanup(client);
+    return 0;
+}
+
+bool http_post(const char* url, const char* body, char* res) {
+    ESP_LOGI(TAG, "HTTP POST %s buff_size: %i\n", url, DEFAULT_HTTP_BUF_SIZE);
+    char local_response_buffer[DEFAULT_HTTP_BUF_SIZE] = {0};
+    esp_http_client_config_t config = {
+        .url = url,
+        .method = HTTP_METHOD_POST,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,
+        .cert_pem = platzi_com_root_cert_pem_start,
+        .user_data = local_response_buffer,
+        .event_handler = _http_event_handler,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    char* access_token = get_token("access_token");
+
+    if (access_token != NULL) {
+        ESP_LOGI(TAG, "Add authorization header: %s", access_token);
+        int bearer_len = strlen(access_token) + 8; // "Bearer " = 7 chars + 1 end char
+        char bearer_token[bearer_len];
+        sprintf(bearer_token, "Bearer %s", access_token);
+        bearer_token[bearer_len] = '\0';
+        esp_http_client_set_header(client, "Authorization", bearer_token);
+    } else {
+        ESP_LOGI(TAG, "Token not found, skip authorization header");
+    }
+
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, body, strlen(body));
+
+    esp_err_t err = esp_http_client_perform(client);
+
+    int status_code = esp_http_client_get_status_code(client);
+    uint64_t content_length = esp_http_client_get_content_length(client);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64, status_code, content_length);
+        ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
+        ESP_LOGI(TAG, "Decoded: %s", (char *)local_response_buffer);
+        strcpy(res, local_response_buffer);
+        if (status_code == 401) {
+            ESP_LOGI(TAG, "Unauthorized request... renew token");
+            if (getTokenTaskHandle != NULL) {
+                vTaskDelete(getTokenTaskHandle);
+            }
+            xTaskCreate(&get_token_task, "get_token_task", 1024 * 8, NULL, 5, &getTokenTaskHandle);
+        }
+    } else {
+        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
+    }
+    esp_http_client_cleanup(client);
+    return 0;
+}
+
 bool sync_account() {
     // Get device code
+    ESP_LOGI(TAG, "Clear previous tokens");
+    save_token("access_token", "");
+    save_token("refresh_token", "");
     ESP_LOGI(TAG, "Get device code");
     char url[] = "https://api-sls.platzi.com/prod/space-api/auth/code";
     ESP_LOGI(TAG, "Sync account url: %s\n", url);
@@ -383,6 +424,9 @@ bool sync_account() {
 		ESP_LOGI(TAG, "expires_in=%i", expires_in);
 	}
     cJSON_Delete(json);
-    xTaskCreate(&get_token_task, "get_token_task", 1024 * 8, NULL, 5, NULL);
+    if (getTokenTaskHandle != NULL) {
+        vTaskDelete(getTokenTaskHandle);
+    }
+    xTaskCreate(&get_token_task, "get_token_task", 1024 * 8, NULL, 5, &getTokenTaskHandle);
     return 0;
 }
