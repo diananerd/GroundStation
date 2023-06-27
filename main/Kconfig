@@ -1,0 +1,12 @@
+menu "Ground Station Configuration"
+    config BASE_FIRMWARE_URL
+        string "Base URL para el bucket del firmware"
+        default "https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com"
+        help 
+            Base URL para el bucket del firmware
+    config SAVE_MESSAGE_URL
+        string "Base URL para el API de mensajes recibidos"
+        default "https://api-sls.platzi.com/prod/space-api/messages/downlink"
+        help
+            Base URL para el API de mensajes recibidos
+endmenu
