@@ -30,7 +30,7 @@ jobs:
 
       - name: Run the build process with Docker
         id: build
-        run: docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest pip install esptool && idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}" && ls -l && python -m esptool --chip esp32 merge_bin -o ./build/firmware.bin --flash_mode dio --flash_freq 40m --flash_size 4MB 0x1000 ./build/bootloader/bootloader.bin 0x10000 ./build/ground-station.bin 0x8000 ./build/partition_table/partition-table.bin 0xd000 ./build/ota_data_initial.bin
+        run: docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}" && pip install esptool && ls -l && python -m esptool --chip esp32 merge_bin -o ./build/firmware.bin --flash_mode dio --flash_freq 40m --flash_size 4MB 0x1000 ./build/bootloader/bootloader.bin 0x10000 ./build/ground-station.bin 0x8000 ./build/partition_table/partition-table.bin 0xd000 ./build/ota_data_initial.bin
 
       - name: Create Release
         id: create_release
