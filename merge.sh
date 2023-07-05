@@ -1,5 +1,4 @@
-echo "Run build commands"
-idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}"
+echo "Run merge commands"
 pip install esptool
 cd ./build
 ls -d
