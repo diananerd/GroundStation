@@ -28,18 +28,13 @@ jobs:
       - name: Show Version
         run: echo "Build and release version " ${{ env.GitVersion_SemVer }}
 
+      - name: Show build script
+        run: cat ./build.sh
+
       - name: Run the build process with Docker
-        uses: addnab/docker-run-action@v3
         id: build
-        with:
-          image: espressif/idf:latest
-          options: -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/
-          run: |
-            idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}"
-            pip install esptool
-            cd build
-            ls -d
-            python -m esptool --chip esp32 merge_bin -o firmware.bin --flash_mode dio --flash_freq 40m --flash_size 4MB 0x1000 bootloader/bootloader.bin 0x10000 ground-station.bin 0x8000 partition_table/partition-table.bin 0xd000 ota_data_initial.bin
+        run: |
+          docker exec -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest ./build.sh
 
       - name: Create Release
         id: create_release
