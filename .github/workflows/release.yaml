@@ -29,12 +29,13 @@ jobs:
         run: echo "Build and release version " ${{ env.GitVersion_SemVer }}
 
       - name: Show build script
-        run: cat ./build.sh
+        run: |
+          cat ./build.sh
 
       - name: Run the build process with Docker
         id: build
         run: |
-          docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest ls -ld
+          docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest pwd && ls -a
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
