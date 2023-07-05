@@ -34,7 +34,7 @@ jobs:
       - name: Run the build process with Docker
         id: build
         run: |
-          docker exec -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest ./build.sh
+          docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest build.sh
 
       - name: Create Release
         id: create_release
