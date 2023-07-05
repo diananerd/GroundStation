@@ -33,7 +33,7 @@ jobs:
         id: build
         with:
           image: espressif/idf:latest
-          options: -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/
+          options: -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/
           run: |
             idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}"
             pip install esptool
