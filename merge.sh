@@ -1,5 +1,5 @@
 echo "Run merge commands"
-pip install esptool
+sudo pip install esptool
 cd ./build
 pwd
 ls -a
