@@ -35,7 +35,7 @@ jobs:
       - name: Run the build process with Docker
         id: build
         run: |
-          docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest idf.py build -D PROJECT_VER="${{ env.GitVersion_SemVer }}" && ls -a && chmod +rwx ./merge.sh && ./merge.sh
+          docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest ./build.sh ${{ env.GitVersion_SemVer }}
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
