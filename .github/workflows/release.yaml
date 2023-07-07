@@ -30,12 +30,13 @@ jobs:
 
       - name: Show merge script
         run: |
-          cat ./merge.sh
+          cat ./build.sh
 
       - name: Run the build process with Docker
         id: build
         run: |
           docker run -t -e IDF_TARGET="esp32" -v ${{ github.workspace }}:/app/${{ github.repository }}/ -w /app/${{ github.repository }}/ espressif/idf:latest ./build.sh ${{ env.GitVersion_SemVer }}
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -54,7 +55,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ./build/firmware.bin
+          asset_path: ./firmware.bin
           asset_name: firmware.bin
           asset_content_type: application/octet-stream
 
@@ -66,7 +67,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
           aws-bucket: ${{ secrets.AWS_BUCKET }}
-          file-path: './build/firmware.bin'
+          file-path: './firmware.bin'
           bucket-root: /firmware
           destination-dir: ${{ env.GitVersion_SemVer }}
 
