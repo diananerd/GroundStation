@@ -13,6 +13,7 @@
 #include "esp_https_ota.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "cmd_board.h"
 #include "cmd_wifi.h"
 #include "api_calls.h"
 #include "cmd_api.h"
@@ -462,6 +463,7 @@ void app_main(void) {
   repl_config.prompt = ">";
 
   initialize_nvs();
+  // initialize_board();
   initialize_wifi();
   initialize_api();
 
@@ -470,6 +472,7 @@ void app_main(void) {
 
   /* Register commands */
   esp_console_register_help_command();
+  register_board();
   register_wifi();
   register_api();
 
