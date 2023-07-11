@@ -44,6 +44,8 @@ static void wifi_scan_show_records() {
 
         ESP_ERROR_CHECK( esp_wifi_scan_get_ap_num(&count_ap) );
         ESP_ERROR_CHECK( esp_wifi_scan_get_ap_records(&number, ap_records) );
+        
+        printf("Networks list:\n");
 
         for (uint16_t i = 0; i < AP_RECORDS_LIST_SIZE && i < count_ap; i++) {
             char *ssid = (char *) ap_records[i].ssid;
