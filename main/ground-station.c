@@ -446,6 +446,46 @@ void app_main(void) {
   app_description = esp_app_get_description();
 
   ESP_LOGI(TAG, "Build version %s", app_description->version);
+
+  log_env_variables();
+
+  initialize_nvs();
+  initialize_wifi();
+  initialize_api();
+
+  nvs_session_init();
+
+  /* Prepare serial console for REPL */
+  esp_console_repl_t *repl = NULL;
+  esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
+  repl_config.task_stack_size = (1024 * 8);
+  repl_config.prompt = ">";
+
+  // board_settings_t bs = {
+  //   .name = "TTGO_LoRA_v2_433MHz",
+  //   .type = 0,
+  //   .aADDR = 60,
+  //   .oSDA = 21,
+  //   .oSCL = 22,
+  //   .oRST = 16,
+  //   .pBut = 0,
+  //   .led = 22,
+  //   .lNSS = 18,
+  //   .lDIO0 = 26,
+  //   .lDIO1 = 33,
+  //   .lBUSSY = 0,
+  //   .lRST = 14,
+  //   .lMISO = 19,
+  //   .lMOSI = 27,
+  //   .lSCK = 5
+  // };
+
+  ESP_LOGI(TAG, "Get board settings");
+  board_settings_t bs;
+  get_board_settings(&bs);
+  // printf("Board name from settings = %s\n", bs.name);
+
+  lora_config_init();
   screen_init();
   screen_clear();
   screen_draw(gs_logo);
@@ -454,24 +494,9 @@ void app_main(void) {
   sprintf(data_str, "     v%s", app_description->version);
   screen_print(data_str, 7);
 
-  log_env_variables();
-
-  /* Prepare serial console for REPL */
-  esp_console_repl_t *repl = NULL;
-  esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
-  repl_config.task_stack_size = (1024 * 8);
-  repl_config.prompt = ">";
-
-  initialize_nvs();
-  // initialize_board();
-  initialize_wifi();
-  initialize_api();
-
-  nvs_session_init();
-  lora_config_init();
-
   /* Register commands */
   esp_console_register_help_command();
+
   register_board();
   register_wifi();
   register_api();

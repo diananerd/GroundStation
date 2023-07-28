@@ -13,45 +13,6 @@ static const char* TAG = "SetupBoard";
 
 nvs_handle_t board_handle;
 
-typedef struct {
-    char *name;
-    int32_t type;
-    int32_t aADDR;
-    int32_t oSDA;
-    int32_t oSCL;
-    int32_t oRST;
-    int32_t pBut;
-    int32_t led;
-    int32_t lNSS;
-    int32_t lDIO0;
-    int32_t lDIO1;
-    int32_t lBUSSY;
-    int32_t lRST;
-    int32_t lMISO;
-    int32_t lMOSI;
-    int32_t lSCK;
-} board_settings_t;
-
-// Default values for TTGO LoRa v2 433 MHz board
-static board_settings_t board_settings =  {
-    .name = "TTGO_LoRA_v2_433MHz",
-    .type = 0,
-    .aADDR = 60,
-    .oSDA = 21,
-    .oSCL = 22,
-    .oRST = 16,
-    .pBut = 0,
-    .led = 22,
-    .lNSS = 18,
-    .lDIO0 = 26,
-    .lDIO1 = 33,
-    .lBUSSY = 0,
-    .lRST = 14,
-    .lMISO = 19,
-    .lMOSI = 27,
-    .lSCK = 5
-};
-
 static struct {
     struct arg_end *end;
 } get_board_settings_args;
@@ -76,17 +37,86 @@ static struct {
     struct arg_end *end;
 } set_board_settings_args;
 
-esp_err_t init_board_settings() {
-    ESP_LOGI(TAG, "Init NVS board settings");
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // NVS partition was truncated and needs to be erased
-        // Retry nvs_flash_init
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
+
+esp_err_t get_board_settings(board_settings_t *board_settings) {
+    esp_err_t err = nvs_open(STORAGE_BOARD_NAMESPACE, NVS_READONLY, &board_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Open nvs error");
+        return err;
     }
-    ESP_ERROR_CHECK( err );
-    return err;
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error on read NVS board settings");
+        return err;
+    }
+
+    ESP_LOGI(TAG, "Reading board settings");
+
+    size_t required_size;
+    nvs_get_str(board_handle, "bs_name", NULL, &required_size);
+    board_settings->name = malloc(required_size);
+
+    if (nvs_get_str(board_handle, "bs_name", board_settings->name, &required_size) == ESP_OK) {
+        ESP_LOGI(TAG, "Board name = %s", board_settings->name);
+    } else {
+        ESP_LOGE(TAG, "Board name not found");
+    }
+
+    if (nvs_get_i32(board_handle, "bs_type", &board_settings->type) == ESP_OK) {
+        if (board_settings->type == 0) {
+            ESP_LOGI(TAG, "LoRa module frecuency is 433 MHz");
+        } else if (board_settings->type == 1) {
+            ESP_LOGI(TAG, "LoRa module frecuency is 915 MHz");
+        } else {
+            ESP_LOGE(TAG, "LoRa module frecuency invalid value = %li", board_settings->type);
+        }
+    }
+    if (nvs_get_i32(board_handle, "bs_aADDR", &board_settings->aADDR) == ESP_OK) {
+        ESP_LOGI(TAG, "OLED address in decimal value = %li", board_settings->aADDR);
+    }
+    if (nvs_get_i32(board_handle, "bs_oSDA", &board_settings->oSDA) == ESP_OK) {
+        ESP_LOGI(TAG, "OLED SDA pin = %li", board_settings->oSDA);
+    }
+    if (nvs_get_i32(board_handle, "bs_oSCL", &board_settings->oSCL) == ESP_OK) {
+        ESP_LOGI(TAG, "OLED SCL pin = %li", board_settings->oSCL);
+    }
+    if (nvs_get_i32(board_handle, "bs_oRST", &board_settings->oRST) == ESP_OK) {
+        ESP_LOGI(TAG, "OLED RST pin = %li", board_settings->oRST);
+    }
+    if (nvs_get_i32(board_handle, "bs_pBut", &board_settings->pBut) == ESP_OK) {
+        ESP_LOGI(TAG, "User button pin = %li", board_settings->pBut);
+    }
+    if (nvs_get_i32(board_handle, "bs_led", &board_settings->led) == ESP_OK) {
+        ESP_LOGI(TAG, "Board LED pin = %li", board_settings->led);
+    }
+    if (nvs_get_i32(board_handle, "bs_lNSS", &board_settings->lNSS) == ESP_OK) {
+        ESP_LOGI(TAG, "LoRa NSS/CS pin = %li", board_settings->lNSS);
+    }
+    if (nvs_get_i32(board_handle, "bs_lDIO0", &board_settings->lDIO0) == ESP_OK) {
+        ESP_LOGI(TAG, "LoRa DIO0 pin = %li", board_settings->lDIO0);
+    }
+    if (nvs_get_i32(board_handle, "bs_lDIO1", &board_settings->lDIO1) == ESP_OK) {
+        ESP_LOGI(TAG, "LoRa DIO1 pin = %li", board_settings->lDIO1);
+    }
+    if (nvs_get_i32(board_handle, "bs_lBUSSY", &board_settings->lBUSSY) == ESP_OK) {
+        ESP_LOGI(TAG, "LoRa BUSSY pin = %li", board_settings->lBUSSY);
+    }
+    if (nvs_get_i32(board_handle, "bs_lRST", &board_settings->lRST) == ESP_OK) {
+        ESP_LOGI(TAG, "LoRa RST pin = %li", board_settings->lRST);
+    }
+    if (nvs_get_i32(board_handle, "bs_lMISO", &board_settings->lMISO) == ESP_OK) {
+        ESP_LOGI(TAG, "LoRa MISO pin = %li", board_settings->lMISO);
+    }
+    if (nvs_get_i32(board_handle, "bs_lMOSI", &board_settings->lMOSI) == ESP_OK) {
+        ESP_LOGI(TAG, "LoRa MOSI pin = %li", board_settings->lMOSI);
+    }
+    if (nvs_get_i32(board_handle, "bs_lSCK", &board_settings->lSCK) == ESP_OK) {
+        ESP_LOGI(TAG, "LoRa SCK pin = %li", board_settings->lSCK);
+    }
+
+    nvs_close(board_handle);
+    ESP_LOGI(TAG, "read board settings end");
+    return 0;
 }
 
 static int get_board_settings_handler(int argc, char **argv) {
@@ -96,78 +126,11 @@ static int get_board_settings_handler(int argc, char **argv) {
         return 1;
     }
 
-    esp_err_t err = nvs_open(STORAGE_BOARD_NAMESPACE, NVS_READONLY, &board_handle);
-    if (err != ESP_OK) return err;
+    board_settings_t bs;
+    get_board_settings(&bs);
 
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Error on read NVS board settings");
-        return 0;
-    }
+    ESP_LOGI(TAG, "End read board settings command");
 
-    size_t required_size;
-    nvs_get_str(board_handle, "bs_name", NULL, &required_size);
-    board_settings.name = malloc(required_size);
-
-    if (nvs_get_str(board_handle, "bs_name", board_settings.name, &required_size) == ESP_OK) {
-        ESP_LOGI(TAG, "Board name = %s", board_settings.name);
-    } else {
-        ESP_LOGE(TAG, "Board name not found");
-    }
-
-    if (nvs_get_i32(board_handle, "bs_type", &board_settings.type) == ESP_OK) {
-        if (board_settings.type == 0) {
-            ESP_LOGI(TAG, "LoRa module frecuency is 433 MHz");
-        } else if (board_settings.type == 1) {
-            ESP_LOGI(TAG, "LoRa module frecuency is 915 MHz");
-        } else {
-            ESP_LOGE(TAG, "LoRa module frecuency invalid value = %li", board_settings.type);
-        }
-    }
-    if (nvs_get_i32(board_handle, "bs_aADDR", &board_settings.aADDR) == ESP_OK) {
-        ESP_LOGI(TAG, "OLED address in decimal value = %li", board_settings.aADDR);
-    }
-    if (nvs_get_i32(board_handle, "bs_oSDA", &board_settings.oSDA) == ESP_OK) {
-        ESP_LOGI(TAG, "OLED SDA pin = %li", board_settings.oSDA);
-    }
-    if (nvs_get_i32(board_handle, "bs_oSCL", &board_settings.oSCL) == ESP_OK) {
-        ESP_LOGI(TAG, "OLED SCL pin = %li", board_settings.oSCL);
-    }
-    if (nvs_get_i32(board_handle, "bs_oRST", &board_settings.oRST) == ESP_OK) {
-        ESP_LOGI(TAG, "OLED RST pin = %li", board_settings.oRST);
-    }
-    if (nvs_get_i32(board_handle, "bs_pBut", &board_settings.pBut) == ESP_OK) {
-        ESP_LOGI(TAG, "User button pin = %li", board_settings.pBut);
-    }
-    if (nvs_get_i32(board_handle, "bs_led", &board_settings.led) == ESP_OK) {
-        ESP_LOGI(TAG, "Board LED pin = %li", board_settings.led);
-    }
-    if (nvs_get_i32(board_handle, "bs_lNSS", &board_settings.lNSS) == ESP_OK) {
-        ESP_LOGI(TAG, "LoRa NSS/CS pin = %li", board_settings.lNSS);
-    }
-    if (nvs_get_i32(board_handle, "bs_lDIO0", &board_settings.lDIO0) == ESP_OK) {
-        ESP_LOGI(TAG, "LoRa DIO0 pin = %li", board_settings.lDIO0);
-    }
-    if (nvs_get_i32(board_handle, "bs_lDIO1", &board_settings.lDIO1) == ESP_OK) {
-        ESP_LOGI(TAG, "LoRa DIO1 pin = %li", board_settings.lDIO1);
-    }
-    if (nvs_get_i32(board_handle, "bs_lBUSSY", &board_settings.lBUSSY) == ESP_OK) {
-        ESP_LOGI(TAG, "LoRa BUSSY pin = %li", board_settings.lBUSSY);
-    }
-    if (nvs_get_i32(board_handle, "bs_lRST", &board_settings.lRST) == ESP_OK) {
-        ESP_LOGI(TAG, "LoRa RST pin = %li", board_settings.lRST);
-    }
-    if (nvs_get_i32(board_handle, "bs_lMISO", &board_settings.lMISO) == ESP_OK) {
-        ESP_LOGI(TAG, "LoRa MISO pin = %li", board_settings.lMISO);
-    }
-    if (nvs_get_i32(board_handle, "bs_lMOSI", &board_settings.lMOSI) == ESP_OK) {
-        ESP_LOGI(TAG, "LoRa MOSI pin = %li", board_settings.lMOSI);
-    }
-    if (nvs_get_i32(board_handle, "bs_lSCK", &board_settings.lSCK) == ESP_OK) {
-        ESP_LOGI(TAG, "LoRa SCK pin = %li", board_settings.lSCK);
-    }
-
-    nvs_close(board_handle);
-    ESP_LOGI(TAG, "read board settings end");
     return 0;
 }
 
@@ -276,6 +239,18 @@ static int set_board_settings_handler(int argc, char **argv) {
     return 0;
 }
 
+
+void initialize_board(void) {
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK( err );
+}
+
 void register_board(void) {
     get_board_settings_args.end = arg_end(0);
 
@@ -312,8 +287,6 @@ void register_board(void) {
         .func = &set_board_settings_handler,
         .argtable = &set_board_settings_args
     };
-
-    init_board_settings();
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&get_board_settings_cmd));
     ESP_ERROR_CHECK(esp_console_cmd_register(&set_board_settings_cmd));
