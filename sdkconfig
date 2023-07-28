@@ -1591,7 +1591,7 @@ CONFIG_WIFI_PROV_STA_ALL_CHANNEL_SCAN=y
 # Ground Station Configuration
 #
 CONFIG_BASE_FIRMWARE_URL="https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com"
-CONFIG_SAVE_MESSAGE_URL="https://api-sls.platzi.com/prod/space-api/messages/downlink"
+CONFIG_API_BASE_URL="https://api-sls.platzi.com/prod/space-api"
 # end of Ground Station Configuration
 
 #
