@@ -3,7 +3,6 @@
 #include "esp_console.h"
 #include "esp_ota_ops.h"
 #include "nvs_flash.h"
-#include "cJSON.h"
 #include "settings.h"
 
 static const char* TAG = "GroundStation";

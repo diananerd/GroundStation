@@ -3,7 +3,6 @@
 #include "esp_console.h"
 #include "nvs_flash.h"
 #include "nvs.h"
-#include "cJSON.h"
 #include "settings.h"
 
 static const char* TAG = "BoardSettings";
