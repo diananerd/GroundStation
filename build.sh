@@ -1,3 +1,4 @@
+# use: ./build.sh <version>
 echo "Run build version: " $1
 idf.py build -D PROJECT_VER=$1
 echo "Run merge firmware"
