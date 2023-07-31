@@ -337,23 +337,6 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
-# SSD1306 Configuration
-#
-CONFIG_GPIO_RANGE_MAX=33
-CONFIG_I2C_INTERFACE=y
-# CONFIG_SPI_INTERFACE is not set
-# CONFIG_SSD1306_128x32 is not set
-CONFIG_SSD1306_128x64=y
-CONFIG_OFFSETX=0
-# CONFIG_FLIP is not set
-CONFIG_SCL_GPIO=22
-CONFIG_SDA_GPIO=21
-CONFIG_MOSI_GPIO=12
-CONFIG_CS_GPIO=15
-CONFIG_RESET_GPIO=15
-# end of SSD1306 Configuration
-
-#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEFAULT=y
@@ -1590,17 +1573,15 @@ CONFIG_WIFI_PROV_STA_ALL_CHANNEL_SCAN=y
 #
 # Ground Station Configuration
 #
-CONFIG_BASE_FIRMWARE_URL="https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com"
+CONFIG_FIRMWARE_URL="https://platzi-ground-station-beta.s3.us-east-2.amazonaws.com"
 CONFIG_API_BASE_URL="https://api-sls.platzi.com/prod/space-api"
 # end of Ground Station Configuration
 
 #
-# LoRa Configuration
+# Board Settings
 #
-CONFIG_RST_GPIO=32
-CONFIG_MISO_GPIO=13
-CONFIG_SCK_GPIO=14
-# end of LoRa Configuration
+CONFIG_STORAGE_NAMESPACE="SETTINGS"
+# end of Board Settings
 # end of Component config
 
 # CONFIG_IDF_EXPERIMENTAL_FEATURES is not set
