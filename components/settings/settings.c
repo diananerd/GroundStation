@@ -6,7 +6,7 @@
 #include "settings.h"
 
 static const char* TAG = "BoardSettings";
-#define LOG_LOCAL_LEVEL ESP_LOG_WARN
+// #define LOG_LOCAL_LEVEL ESP_LOG_WARN
 
 esp_err_t settings_create(settings_handle_t* settings) {
     *settings = cJSON_CreateObject();
@@ -78,56 +78,43 @@ esp_err_t write_settings(settings_handle_t settings) {
     return err;
 }
 
-esp_err_t settings_get_str(settings_handle_t* settings, char* key, char** read_value) {
+esp_err_t settings_get(settings_handle_t* settings, setting_t* setting) {
     esp_err_t err = ESP_OK;
     err = read_settings(settings);
-    if (!cJSON_GetObjectItem(*settings, key)) {
-      ESP_LOGE(TAG, "%s value not found", key);
+    cJSON* setting_json = cJSON_GetObjectItem(*settings, setting->key);
+    if (!setting_json) {
+      ESP_LOGE(TAG, "%s value not found", setting->key);
       return ESP_ERR_NOT_FOUND;
     }
-    char* value = cJSON_GetObjectItem(*settings, key)->valuestring;
-    ESP_LOGI(TAG, "key=%s value = %s", key, value);
-    *read_value = (char*)malloc(strlen(value) + 1);
-    strcpy(*read_value, value);
-    ESP_LOGI(TAG, "settings_get_str key=%s value=%s", key, value);
+    ESP_LOGI(TAG, "Reading key=%s", setting->key);
+    if (cJSON_IsString(setting_json)) {
+        setting->type = STRING;
+        char* value = setting_json->valuestring;
+        setting->valuestring = (char*)malloc(strlen(value) + 1);
+        strcpy(setting->valuestring, value);
+        ESP_LOGI(TAG, "settings_get as str key=%s value=%s", setting->key, setting->valuestring);
+    } else if (cJSON_IsNumber(setting_json)) {
+        setting->type = NUMBER;
+        setting->valueint = setting_json->valueint;
+        ESP_LOGI(TAG, "settings_get as int key=%s value=%i", setting->key, setting->valueint);
+    }
     return err;
 }
 
-esp_err_t settings_set_str(settings_handle_t* settings, char* key, char* value) {
-    ESP_LOGI(TAG, "settings_set_str key=%s value=%s", key, value);
+esp_err_t settings_set(settings_handle_t* settings, const setting_t* setting) {
     esp_err_t err = ESP_OK;
-    if (cJSON_GetObjectItem(*settings, key)) {
-      cJSON_DeleteItemFromObjectCaseSensitive(*settings, key);
+    if (cJSON_GetObjectItem(*settings, setting->key)) {
+      cJSON_DeleteItemFromObjectCaseSensitive(*settings, setting->key);
     }
-    cJSON_AddStringToObject(*settings, key, value);
+    if (setting->type == STRING) {
+        cJSON_AddStringToObject(*settings, setting->key, setting->valuestring);
+    } else if (setting->type == NUMBER) {
+        cJSON_AddNumberToObject(*settings, setting->key, setting->valueint);
+    }
     err = write_settings(*settings);
     return err;
 }
 
-esp_err_t settings_get_int(settings_handle_t* settings, char* key, int* read_value) {
-    esp_err_t err = ESP_OK;
-    err = read_settings(settings);
-    if (!cJSON_GetObjectItem(*settings, key)) {
-      ESP_LOGE(TAG, "%s value not found", key);
-      return ESP_ERR_NOT_FOUND;
-    }
-    int value = cJSON_GetObjectItem(*settings, key)->valueint;
-    ESP_LOGI(TAG, "key=%s value = %i", key, value);
-    *read_value = value;
-    ESP_LOGI(TAG, "settings_get_int key=%s value=%i", key, value);
-    return err;
-}
-
-esp_err_t settings_set_int(settings_handle_t* settings, char* key, int value) {
-    ESP_LOGI(TAG, "settings_set_int key=%s value=%i", key, value);
-    esp_err_t err = ESP_OK;
-    if (cJSON_GetObjectItem(*settings, key)) {
-      cJSON_DeleteItemFromObjectCaseSensitive(*settings, key);
-    }
-    cJSON_AddNumberToObject(*settings, key, value);
-    err = write_settings(*settings);
-    return err;
-}
 
 void settings_free(settings_handle_t* settings) {
     cJSON_free(*settings);

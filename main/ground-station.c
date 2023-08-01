@@ -43,19 +43,45 @@ void app_main(void) {
   settings_handle_t settings_handle;
   err = settings_create(&settings_handle);
 
-  char* foo = "";
-  int mycount = 0;
-  err = settings_get_str(&settings_handle, "foo", &foo);
-  ESP_LOGI(TAG, "A) settings_get foo=%s", foo);
-  err = settings_set_str(&settings_handle, "foo", "alt value");
-  err = settings_get_str(&settings_handle, "foo", &foo);
-  ESP_LOGI(TAG, "B) settings_get foo=%s", foo);
+  setting_t bs_str = {
+    .type = STRING,
+    .key = "foo",
+    .valuestring = "updated as struct"
+  };
 
-  err = settings_get_int(&settings_handle, "count", &mycount);
-  ESP_LOGI(TAG, "C) settings_get count=%i", mycount);
-  err = settings_set_int(&settings_handle, "count", 14);
-  err = settings_get_int(&settings_handle, "count", &mycount);
-  ESP_LOGI(TAG, "D) settings_get count=%i", mycount);
+  setting_t bs_str_out = {
+    .key = "foo"
+  };
+
+  err = settings_set(&settings_handle, &bs_str);
+  err = settings_get(&settings_handle, &bs_str_out);
+  ESP_LOGI(TAG, "FINAL type %s %s=%s", SETTING_TYPE_NAMES[bs_str_out.type], bs_str_out.key, bs_str_out.valuestring);
+
+  setting_t bs_int = {
+    .type = NUMBER,
+    .key = "count",
+    .valueint = 1024
+  };
+
+  setting_t bs_int_out = {
+    .key = "count"
+  };
+
+  err = settings_set(&settings_handle, &bs_int);
+  err = settings_get(&settings_handle, &bs_int_out);
+  ESP_LOGI(TAG, "FINAL type %s %s=%i", SETTING_TYPE_NAMES[bs_int_out.type], bs_int_out.key, bs_int_out.valueint);
+
+  // err = settings_get_str(&settings_handle, "foo", &foo);
+  // ESP_LOGI(TAG, "A) settings_get foo=%s", foo);
+  // err = settings_set_str(&settings_handle, "foo", "alt value");
+  // err = settings_get_str(&settings_handle, "foo", &foo);
+  // ESP_LOGI(TAG, "B) settings_get foo=%s", foo);
+
+  // err = settings_get_int(&settings_handle, "count", &mycount);
+  // ESP_LOGI(TAG, "C) settings_get count=%i", mycount);
+  // err = settings_set_int(&settings_handle, "count", 14);
+  // err = settings_get_int(&settings_handle, "count", &mycount);
+  // ESP_LOGI(TAG, "D) settings_get count=%i", mycount);
 
   settings_free(&settings_handle);
 
