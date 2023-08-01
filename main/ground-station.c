@@ -45,33 +45,39 @@ void app_main(void) {
 
   setting_t bs_str = {
     .type = STRING,
-    .key = "foo",
-    .valuestring = "updated as struct"
+    .key = "board_name",
+    .valuestring = "TTGO LoRa32 v2 433 MHz"
   };
 
-  setting_t bs_str_out = {
-    .key = "foo"
-  };
+  // setting_t bs_str_out = {
+  //   .key = "board_name"
+  // };
 
   err = settings_set(&settings_handle, &bs_str);
-  err = settings_get(&settings_handle, &bs_str_out);
-  ESP_LOGI(TAG, "FINAL type %s %s=%s", SETTING_TYPE_NAMES[bs_str_out.type], bs_str_out.key, bs_str_out.valuestring);
+  // err = settings_get(&settings_handle, &bs_str_out);
+  // ESP_LOGI(TAG, "SET %s %s=%s", SETTING_TYPE_NAMES[bs_str_out.type], bs_str_out.key, bs_str_out.valuestring);
 
   setting_t bs_int = {
     .type = NUMBER,
-    .key = "count",
-    .valueint = 1024
+    .key = "type",
+    .valueint = 0
   };
 
-  setting_t bs_int_out = {
-    .key = "count"
-  };
+  // setting_t bs_int_out = {
+  //   .key = "type"
+  // };
 
   err = settings_set(&settings_handle, &bs_int);
-  err = settings_get(&settings_handle, &bs_int_out);
-  ESP_LOGI(TAG, "FINAL type %s %s=%i", SETTING_TYPE_NAMES[bs_int_out.type], bs_int_out.key, bs_int_out.valueint);
+  // err = settings_get(&settings_handle, &bs_int_out);
+  // ESP_LOGI(TAG, "SET %s %s=%i", SETTING_TYPE_NAMES[bs_int_out.type], bs_int_out.key, bs_int_out.valueint);
 
   settings_free(&settings_handle);
+
+  // char* settings_string;
+  // settings_raw_str(&settings_string);
+  // printf("BOARD SETTINGS: %s\n", settings_string);
+
+  settings_list();
 
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;
