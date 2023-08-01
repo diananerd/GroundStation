@@ -77,7 +77,7 @@ void app_main(void) {
   // settings_raw_str(&settings_string);
   // printf("BOARD SETTINGS: %s\n", settings_string);
 
-  settings_list();
+  // settings_list();
 
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;
