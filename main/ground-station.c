@@ -71,18 +71,6 @@ void app_main(void) {
   err = settings_get(&settings_handle, &bs_int_out);
   ESP_LOGI(TAG, "FINAL type %s %s=%i", SETTING_TYPE_NAMES[bs_int_out.type], bs_int_out.key, bs_int_out.valueint);
 
-  // err = settings_get_str(&settings_handle, "foo", &foo);
-  // ESP_LOGI(TAG, "A) settings_get foo=%s", foo);
-  // err = settings_set_str(&settings_handle, "foo", "alt value");
-  // err = settings_get_str(&settings_handle, "foo", &foo);
-  // ESP_LOGI(TAG, "B) settings_get foo=%s", foo);
-
-  // err = settings_get_int(&settings_handle, "count", &mycount);
-  // ESP_LOGI(TAG, "C) settings_get count=%i", mycount);
-  // err = settings_set_int(&settings_handle, "count", 14);
-  // err = settings_get_int(&settings_handle, "count", &mycount);
-  // ESP_LOGI(TAG, "D) settings_get count=%i", mycount);
-
   settings_free(&settings_handle);
 
   /* Prepare serial console for REPL */
