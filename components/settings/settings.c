@@ -126,7 +126,6 @@ esp_err_t settings_raw_str(char** settings_string) {
 }
 
 esp_err_t settings_list() {
-    ESP_LOGI(TAG, "List settings...");
     esp_err_t err = ESP_OK;
     settings_handle_t settings;
     err = read_settings(&settings);
