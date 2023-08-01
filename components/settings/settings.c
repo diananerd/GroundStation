@@ -6,7 +6,7 @@
 #include "settings.h"
 
 static const char* TAG = "BoardSettings";
-// #define LOG_LOCAL_LEVEL ESP_LOG_WARN
+#define LOG_LOCAL_LEVEL ESP_LOG_WARN
 
 esp_err_t settings_create(settings_handle_t* settings) {
     *settings = cJSON_CreateObject();
@@ -115,6 +115,37 @@ esp_err_t settings_set(settings_handle_t* settings, const setting_t* setting) {
     return err;
 }
 
+esp_err_t settings_raw_str(char** settings_string) {
+    esp_err_t err = ESP_OK;
+    settings_handle_t settings;
+    err = read_settings(&settings);
+    char* raw_str = cJSON_Print(settings);
+    *settings_string = (char*)malloc(strlen(raw_str));
+    strcpy(*settings_string, raw_str);
+    return err;
+}
+
+esp_err_t settings_list() {
+    ESP_LOGI(TAG, "List settings...");
+    esp_err_t err = ESP_OK;
+    settings_handle_t settings;
+    err = read_settings(&settings);
+    cJSON* element = settings->child;
+    setting_t setting = {};
+    printf("Board settings:\n");
+    while (element) {
+        setting.key = (char*)malloc(strlen(element->string) + 1);
+        strcpy(setting.key, element->string);
+        err = settings_get(&settings, &setting);
+        if (setting.type == STRING) {
+            printf("%s=%s\n", element->string, setting.valuestring);
+        } else if (setting.type == NUMBER) {
+            printf("%s=%i\n", element->string, setting.valueint);
+        }
+        element = element->next;
+    }
+    return err;
+}
 
 void settings_free(settings_handle_t* settings) {
     cJSON_free(*settings);
