@@ -25,10 +25,14 @@ typedef struct {
 } setting_t;
 
 esp_err_t settings_create(settings_handle_t* settings);
+esp_err_t read_settings(settings_handle_t* settings);
+esp_err_t write_settings(settings_handle_t settings);
 esp_err_t settings_get(settings_handle_t* settings, setting_t* setting);
 esp_err_t settings_set(settings_handle_t* settings, const setting_t* setting);
+esp_err_t settings_delete(settings_handle_t* settings, const setting_t* setting);
 esp_err_t settings_raw_str(char** settings_string);
 esp_err_t settings_list();
+esp_err_t settings_list_json();
 void settings_free(settings_handle_t* settings);
 
 #ifdef __cplusplus

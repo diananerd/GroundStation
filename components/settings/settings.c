@@ -1,6 +1,5 @@
 #include <string.h>
 #include "esp_log.h"
-#include "esp_console.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "settings.h"
@@ -10,6 +9,7 @@ static const char* TAG = "BoardSettings";
 
 esp_err_t settings_create(settings_handle_t* settings) {
     *settings = cJSON_CreateObject();
+    read_settings(settings);
     return ESP_OK;
 }
 
@@ -71,6 +71,7 @@ esp_err_t write_settings(settings_handle_t settings) {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error on commit settings_string value to NVS");
     }
+    ESP_LOGI(TAG, "NVS Commit");
 
     cJSON_free(settings_string);
 
@@ -115,6 +116,15 @@ esp_err_t settings_set(settings_handle_t* settings, const setting_t* setting) {
     return err;
 }
 
+esp_err_t settings_delete(settings_handle_t* settings, const setting_t* setting) {
+    esp_err_t err = ESP_OK;
+    if (cJSON_GetObjectItem(*settings, setting->key)) {
+      cJSON_DeleteItemFromObjectCaseSensitive(*settings, setting->key);
+    }
+    err = write_settings(*settings);
+    return err;
+}
+
 esp_err_t settings_raw_str(char** settings_string) {
     esp_err_t err = ESP_OK;
     settings_handle_t settings;
@@ -131,17 +141,26 @@ esp_err_t settings_list() {
     err = read_settings(&settings);
     cJSON* element = settings->child;
     setting_t setting = {};
-    printf("Board settings:\n");
     while (element) {
         setting.key = (char*)malloc(strlen(element->string) + 1);
         strcpy(setting.key, element->string);
         err = settings_get(&settings, &setting);
         if (setting.type == STRING) {
-            printf("%s=%s\n", element->string, setting.valuestring);
+            printf("%s: %s\n", element->string, setting.valuestring);
         } else if (setting.type == NUMBER) {
-            printf("%s=%i\n", element->string, setting.valueint);
+            printf("%s: %i\n", element->string, setting.valueint);
         }
         element = element->next;
+    }
+    return err;
+}
+
+esp_err_t settings_list_json() {
+    esp_err_t err = ESP_OK;
+    char* raw_str;
+    err = settings_raw_str(&raw_str);
+    if (err == ESP_OK) {
+        printf("%s\n", raw_str);
     }
     return err;
 }
