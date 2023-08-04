@@ -14,7 +14,10 @@ Synchronize the ground station settings from stored in backend (like location, r
 Show info about user and device identity
 
 ### Session
-Show info about session status (is loggedin)
+Show session status (is loggedin)
+
+### Code
+Show login device code
 
 ### Tokens
 Show access and refresh tokens
