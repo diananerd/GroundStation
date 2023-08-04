@@ -4,7 +4,7 @@
 #include "nvs.h"
 #include "settings.h"
 
-static const char* TAG = "BoardSettings";
+static const char* TAG = "SETTINGS";
 #define LOG_LOCAL_LEVEL ESP_LOG_WARN
 
 esp_err_t settings_create(settings_handle_t* settings) {
