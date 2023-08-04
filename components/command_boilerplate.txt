@@ -1,0 +1,30 @@
+Boilerplate for add new commands in console components
+
+// setup command
+static struct {
+    struct arg_end *end;
+} <command>_<component>_args;
+
+static int <command>_<component>_exec(int argc, char **argv) {
+    ESP_LOGI(TAG, "<command>_<component>_exec");
+    int nerrors = arg_parse(argc, argv, (void **) &<command>_<component>_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, <command>_<component>_args.end, argv[0]);
+        return 1;
+    }
+    return 0;
+}
+
+// register function
+    <command>_<component>_args.end = arg_end(1);
+
+    const esp_console_cmd_t <command>_<component>_cmd = {
+        .command = "<command>",
+        .help = "",
+        .hint = NULL,
+        .func = &<command>_<component>_exec,
+        .argtable = &<command>_<component>_args
+    };
+
+// register call
+    ESP_ERROR_CHECK(esp_console_cmd_register(&<command>_<component>_cmd));
