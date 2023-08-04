@@ -152,7 +152,7 @@ void register_settings() {
 
     const esp_console_cmd_t list_settings_cmd = {
         .command = "settings",
-        .help = "list all settings",
+        .help = "List all settings",
         .hint = NULL,
         .func = &list_settings_exec,
         .argtable = &list_settings_args
@@ -163,7 +163,7 @@ void register_settings() {
 
     const esp_console_cmd_t get_settings_cmd = {
         .command = "get",
-        .help = "get setting by key",
+        .help = "Get setting by key",
         .hint = NULL,
         .func = &get_settings_exec,
         .argtable = &get_settings_args
@@ -175,7 +175,7 @@ void register_settings() {
 
     const esp_console_cmd_t set_settings_cmd = {
         .command = "set",
-        .help = "set setting by key and value",
+        .help = "Set setting by key and value",
         .hint = NULL,
         .func = &set_settings_exec,
         .argtable = &set_settings_args
@@ -186,7 +186,7 @@ void register_settings() {
 
     const esp_console_cmd_t delete_settings_cmd = {
         .command = "delete",
-        .help = "delete setting by key",
+        .help = "Delete setting by key",
         .hint = NULL,
         .func = &delete_settings_exec,
         .argtable =&delete_settings_args
