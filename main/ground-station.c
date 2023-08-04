@@ -20,6 +20,12 @@
 
 static const char* TAG = "GROUND_STATION";
 
+extern const char ota_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
+extern const char ota_cert_pem_end[] asm("_binary_amazonaws_com_root_cert_pem_end");
+
+extern const char api_cert_pem_start[] asm("_binary_platzi_com_root_cert_pem_start");
+extern const char api_cert_pem_end[] asm("_binary_platzi_com_root_cert_pem_end");
+
 static void log_env_variables() {
   # ifndef CONFIG_FIRMWARE_URL
   ESP_LOGE(TAG, "FIRMWARE_URL is not defined in project build");
