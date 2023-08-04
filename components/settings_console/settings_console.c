@@ -6,7 +6,7 @@
 #include "settings.h"
 #include "settings_console.h"
 
-static const char* TAG = "SettingsConsole";
+static const char* TAG = "SETTINGS_CONSOLE";
 
 static struct {
     struct arg_lit *json;
@@ -145,6 +145,8 @@ static int delete_settings_exec(int argc, char **argv) {
 }
 
 void register_settings() {
+    ESP_LOGI(TAG, "register_settings");
+
     list_settings_args.json = arg_lit0("j", "json", "show result as json");
     list_settings_args.end = arg_end(1);
 
