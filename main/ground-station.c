@@ -4,6 +4,7 @@
 #include "esp_ota_ops.h"
 #include "nvs_flash.h"
 #include "settings.h"
+#include "settings_console.h"
 
 static const char* TAG = "GroundStation";
 
@@ -49,34 +50,59 @@ void app_main(void) {
     .valuestring = "TTGO LoRa32 v2 433 MHz"
   };
 
-  // setting_t bs_str_out = {
-  //   .key = "board_name"
-  // };
-
   err = settings_set(&settings_handle, &bs_str);
-  // err = settings_get(&settings_handle, &bs_str_out);
-  // ESP_LOGI(TAG, "SET %s %s=%s", SETTING_TYPE_NAMES[bs_str_out.type], bs_str_out.key, bs_str_out.valuestring);
 
-  setting_t bs_int = {
-    .type = NUMBER,
-    .key = "type",
-    .valueint = 0
+  setting_t wifi_ssid = {
+    .key = "wifi_ssid"
   };
+
+  err = settings_get(&settings_handle, &wifi_ssid);
+
+  if (!wifi_ssid.valuestring) {
+    printf("ssid not found\n");
+  } else {
+    printf("ssid: %s\n", wifi_ssid.valuestring);
+  }
+
+  setting_t wifi_pass = {
+    .key = "wifi_pass"
+  };
+
+  err = settings_get(&settings_handle, &wifi_pass);
+
+  if (!wifi_pass.valuestring) {
+    printf("password not found\n");
+  } else {
+    int password_len = strlen(wifi_pass.valuestring);
+    int password_end = 4;
+    if (password_len < 8) {
+      printf("password too short to display\n");
+    } else {
+      char* password = wifi_pass.valuestring;
+      for (int i = 0; i < password_len - password_end; i++) {
+        password[i] = '*';
+      }
+      printf("password: %s\n", password);
+    }
+  }
+
+  // setting_t bs_int = {
+  //   .type = NUMBER,
+  //   .key = "type",
+  //   .valueint = 0
+  // };
 
   // setting_t bs_int_out = {
   //   .key = "type"
   // };
 
-  err = settings_set(&settings_handle, &bs_int);
+  // err = settings_set(&settings_handle, &bs_int);
   // err = settings_get(&settings_handle, &bs_int_out);
   // ESP_LOGI(TAG, "SET %s %s=%i", SETTING_TYPE_NAMES[bs_int_out.type], bs_int_out.key, bs_int_out.valueint);
 
-  settings_free(&settings_handle);
+  // settings_free(&settings_handle);
 
-  // char* settings_string;
-  // settings_raw_str(&settings_string);
-  // printf("BOARD SETTINGS: %s\n", settings_string);
-
+  // printf("BOARD SETTINGS\n");
   // settings_list();
 
   /* Prepare serial console for REPL */
@@ -106,6 +132,7 @@ void app_main(void) {
 
   /* Register commands */
   esp_console_register_help_command();
+  register_settings();
 
   /* Setup console REPL over UART */
   esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
