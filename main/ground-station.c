@@ -6,7 +6,7 @@
 #include "settings.h"
 #include "settings_console.h"
 
-static const char* TAG = "GroundStation";
+static const char* TAG = "GROUND_STATION";
 
 static void log_env_variables() {
   # ifndef CONFIG_FIRMWARE_URL
