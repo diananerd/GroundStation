@@ -2,7 +2,7 @@
 Component console commands and usage
 
 ### Send
-Send message vía LoRa
+Send message via LoRa
 Use Space API for encode and sign messages
 
 ### Test
