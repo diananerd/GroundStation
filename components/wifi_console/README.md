@@ -11,4 +11,4 @@ Join to network with ssid and password
 Show network status
 
 ### IP
-Show ground station local IP
+Show local network IP

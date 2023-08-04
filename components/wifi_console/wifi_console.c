@@ -72,7 +72,7 @@ void register_wifi() {
 
     const esp_console_cmd_t networks_wifi_cmd = {
         .command = "networks",
-        .help = "",
+        .help = "List available networks",
         .hint = NULL,
         .func = &networks_wifi_exec,
         .argtable = &networks_wifi_args
@@ -82,7 +82,7 @@ void register_wifi() {
 
     const esp_console_cmd_t join_wifi_cmd = {
         .command = "join",
-        .help = "",
+        .help = "Join to network with ssid and password",
         .hint = NULL,
         .func = &join_wifi_exec,
         .argtable = &join_wifi_args
@@ -92,7 +92,7 @@ void register_wifi() {
 
     const esp_console_cmd_t netstat_wifi_cmd = {
         .command = "netstat",
-        .help = "",
+        .help = "Show network status (is online)",
         .hint = NULL,
         .func = &netstat_wifi_exec,
         .argtable = &netstat_wifi_args
@@ -102,7 +102,7 @@ void register_wifi() {
 
     const esp_console_cmd_t ip_wifi_cmd = {
         .command = "ip",
-        .help = "",
+        .help = "Show local network IP",
         .hint = NULL,
         .func = &ip_wifi_exec,
         .argtable = &ip_wifi_args
