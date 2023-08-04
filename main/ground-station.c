@@ -5,6 +5,18 @@
 #include "nvs_flash.h"
 #include "settings.h"
 #include "settings_console.h"
+#include "wifi.h"
+#include "wifi_console.h"
+#include "oled.h"
+#include "oled_console.h"
+#include "ota.h"
+#include "ota_console.h"
+#include "api.h"
+#include "api_console.h"
+#include "lora.h"
+#include "lora_console.h"
+#include "motors.h"
+#include "motors_console.h"
 
 static const char* TAG = "GROUND_STATION";
 
@@ -133,6 +145,12 @@ void app_main(void) {
   /* Register commands */
   esp_console_register_help_command();
   register_settings();
+  register_wifi();
+  register_oled();
+  register_ota();
+  register_api();
+  register_lora();
+  register_motors();
 
   /* Setup console REPL over UART */
   esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
