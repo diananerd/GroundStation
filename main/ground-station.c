@@ -158,6 +158,8 @@ void app_main(void) {
   register_lora();
   register_motors();
 
+  initialize_wifi();
+
   /* Setup console REPL over UART */
   esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_console_new_repl_uart(&hw_config, &repl_config, &repl));

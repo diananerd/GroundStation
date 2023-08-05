@@ -9,6 +9,3 @@ Join to network with ssid and password
 
 ### Netstat
 Show network status
-
-### IP
-Show local network IP
