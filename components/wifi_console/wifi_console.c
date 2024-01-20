@@ -5,9 +5,12 @@
 #include "argtable3/argtable3.h"
 #include "wifi.h"
 #include "wifi_console.h"
+#include "settings.h"
 
 static const char* TAG = "WIFI_CONSOLE";
 // #define LOG_LOCAL_LEVEL ESP_LOG_WARN
+
+settings_handle_t settings_handle;
 
 static struct {
     struct arg_lit *json;
@@ -119,6 +122,14 @@ static int join_wifi_exec(int argc, char **argv) {
         return 0;
     }
 
+    ESP_LOGI(TAG, "save ssid to settings: %s", join_wifi_args.ssid->sval[0]);
+    setting_t wifi_ssid = {
+        .type = STRING,
+        .key = "wifi_ssid",
+        .valuestring = join_wifi_args.ssid->sval[0]
+    };
+    esp_err_t ssid_err = settings_set(&settings_handle, &wifi_ssid);
+
     if (join_wifi_args.password->count <= 0) {
         ESP_LOGE(TAG, "password not found");
         if (join_wifi_args.json->count > 0) {
@@ -128,6 +139,14 @@ static int join_wifi_exec(int argc, char **argv) {
         }
         return 0;
     }
+    
+    ESP_LOGI(TAG, "save pass to settings: %s", join_wifi_args.password->sval[0]);
+    setting_t wifi_pass = {
+        .type = STRING,
+        .key = "wifi_pass",
+        .valuestring = join_wifi_args.password->sval[0]
+    };
+    esp_err_t pass_err = settings_set(&settings_handle, &wifi_pass);
 
     wifi_network_t network = {
         .ssid = join_wifi_args.ssid->sval[0],
@@ -225,6 +244,7 @@ static int ip_wifi_exec(int argc, char **argv) {
 
 void register_wifi() {
     ESP_LOGI(TAG, "register_wifi");
+    settings_create(&settings_handle);
 
     networks_wifi_args.json = arg_lit0("j", "json", "show output as json");
     networks_wifi_args.end = arg_end(1);
