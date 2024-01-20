@@ -242,7 +242,7 @@ esp_err_t join_wifi(wifi_network_t* network) {
         ESP_LOGE(TAG, "%s", esp_err_to_name(err));
         wifi_status = DISCONNECTED;
         if (err == ESP_ERR_WIFI_CONN) {
-            
+            return ESP_ERR_WIFI_CONN;
         } else {
             return err;
         }
