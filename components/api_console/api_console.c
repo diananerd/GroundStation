@@ -178,7 +178,7 @@ void register_api() {
 
     const esp_console_cmd_t code_api_cmd = {
         .command = "code",
-        .help = "",
+        .help = "Show code to login",
         .hint = NULL,
         .func = &code_api_exec,
         .argtable = &code_api_args
