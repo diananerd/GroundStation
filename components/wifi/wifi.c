@@ -24,7 +24,6 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         esp_err_t err = esp_wifi_connect();
         wifi_status = CONNECTING;
         if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s", esp_err_to_name(err));
             wifi_status = DISCONNECTED;
             wifi_connection_retries = 0;
         }
