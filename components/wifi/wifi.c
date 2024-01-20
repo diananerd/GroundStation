@@ -24,6 +24,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         esp_err_t err = esp_wifi_connect();
         wifi_status = CONNECTING;
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s", esp_err_to_name(err));
             wifi_status = DISCONNECTED;
             wifi_connection_retries = 0;
         }
@@ -31,9 +32,14 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         ESP_LOGI(TAG,"disconnected event");
         ip = "";
         if (wifi_connection_retries < MAX_WIFI_CONNECTION_RETRIES) {
-            esp_wifi_connect();
+            esp_err_t err = esp_wifi_connect();
             wifi_status = CONNECTING;
             wifi_connection_retries++;
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s", esp_err_to_name(err));
+                wifi_status = DISCONNECTED;
+                wifi_connection_retries = 0;
+            }
             ESP_LOGI(TAG, "retry to connect to the AP");
         } else {
             ESP_LOGE(TAG, "connection failed");
