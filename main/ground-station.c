@@ -1,4 +1,6 @@
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_console.h"
 #include "esp_ota_ops.h"
@@ -70,40 +72,6 @@ void app_main(void) {
 
   err = settings_set(&settings_handle, &bs_str);
 
-  setting_t wifi_ssid = {
-    .key = "wifi_ssid"
-  };
-
-  err = settings_get(&settings_handle, &wifi_ssid);
-
-  if (!wifi_ssid.valuestring) {
-    printf("ssid not found\n");
-  } else {
-    printf("ssid: %s\n", wifi_ssid.valuestring);
-  }
-
-  setting_t wifi_pass = {
-    .key = "wifi_pass"
-  };
-
-  err = settings_get(&settings_handle, &wifi_pass);
-
-  if (!wifi_pass.valuestring) {
-    printf("password not found\n");
-  } else {
-    int password_len = strlen(wifi_pass.valuestring);
-    int password_end = 4;
-    if (password_len < 8) {
-      printf("password too short to display\n");
-    } else {
-      char* password = wifi_pass.valuestring;
-      for (int i = 0; i < password_len - password_end; i++) {
-        password[i] = '*';
-      }
-      printf("password: %s\n", password);
-    }
-  }
-
   // setting_t bs_int = {
   //   .type = NUMBER,
   //   .key = "type",
@@ -159,6 +127,52 @@ void app_main(void) {
   // register_motors();
 
   initialize_wifi();
+
+  wifi_network_t network = {};
+
+  setting_t wifi_ssid = {
+    .key = "wifi_ssid"
+  };
+
+  err = settings_get(&settings_handle, &wifi_ssid);
+
+  if (!wifi_ssid.valuestring) {
+    printf("ssid not found\n");
+  } else {
+    printf("ssid: %s\n", wifi_ssid.valuestring);
+    network.ssid = wifi_ssid.valuestring;
+  }
+
+  setting_t wifi_pass = {
+    .key = "wifi_pass"
+  };
+
+  err = settings_get(&settings_handle, &wifi_pass);
+
+  if (!wifi_pass.valuestring) {
+    printf("password not found\n");
+  } else {
+    int password_len = strlen(wifi_pass.valuestring);
+    int password_end = 4;
+    if (password_len < 8) {
+      printf("password too short to display\n");
+    } else {
+      /* char* password_masked = malloc(password_len);
+      strcpy(password_masked, wifi_pass.valuestring);
+      for (int i = 0; i < password_len - password_end; i++) {
+        password_masked[i] = '*';
+      }
+      printf("password: %s\n", password_masked); */
+      printf("password: %s\n", wifi_pass.valuestring);
+      network.password = wifi_pass.valuestring;
+    }
+  }
+
+  if (!network.ssid || !network.password) {
+    printf("no wifi credentials found\n");
+  } else {
+    join_wifi(&network);
+  }
 
   /* Setup console REPL over UART */
   esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
