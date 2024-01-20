@@ -21,8 +21,13 @@ static char* ip = "";
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         ESP_LOGI(TAG, "start event");
-        esp_wifi_connect();
+        esp_err_t err = esp_wifi_connect();
         wifi_status = CONNECTING;
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s", esp_err_to_name(err));
+            wifi_status = DISCONNECTED;
+            wifi_connection_retries = 0;
+        }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGI(TAG,"disconnected event");
         ip = "";
