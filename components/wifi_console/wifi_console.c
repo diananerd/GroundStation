@@ -149,15 +149,15 @@ static int join_wifi_exec(int argc, char **argv) {
 
     if (join_wifi_args.json->count > 0) {
         if (netstat.connected) {
-            printf("{\"status\":\"success\"}\n");
+            printf("{\"connection\":\"success\"}\n");
         } else {
-            printf("{\"status\":\"failed\"}\n");
+            printf("{\"error\":\"connection failed\"}\n");
         }
     } else {
         if (netstat.connected) {
-            printf("success\n");
+            printf("connection success\n");
         } else {
-            printf("failed\n");
+            printf("connection failed\n");
         }
     }
 
