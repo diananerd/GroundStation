@@ -95,7 +95,12 @@ static int set_settings_exec(int argc, char **argv) {
     setting.key = set_settings_args.key->sval[0];
 
     int valueint = atoi(set_settings_args.value->sval[0]);
-    if (strcmp(set_settings_args.value->sval[0], "0") == 0 || valueint != 0) {
+    char* valueintstr = malloc(sizeof(set_settings_args.value->sval[0]) + 1);
+    sprintf(valueintstr, "%i", valueint);
+    char* valuestring = set_settings_args.value->sval[0];
+    int is_number = strcmp(valueintstr, set_settings_args.value->sval[0]) == 0;
+    ESP_LOGI(TAG, "is_number %i", is_number);
+    if ((strcmp(set_settings_args.value->sval[0], "0") == 0 || valueint != 0) && is_number) {
         ESP_LOGI(TAG, "number %s=%s", set_settings_args.key->sval[0], set_settings_args.value->sval[0]);
         setting.type = NUMBER;
         setting.valueint = valueint;
