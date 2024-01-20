@@ -10,13 +10,15 @@ extern "C" {
 typedef enum CONNECTION_STATES {
     CONNECTED,
     DISCONNECTED,
-    CONNECTING
+    CONNECTING,
+    RECONNECTING
 } wifi_status_t;
 
 static const char * const CONNECTION_STATE_NAMES[] = {
     [CONNECTED] = "connected",
     [DISCONNECTED] = "disconnected",
-    [CONNECTING] = "connecting"
+    [CONNECTING] = "connecting",
+    [RECONNECTING] = "reconnecting"
 };
 
 typedef struct {
@@ -40,6 +42,7 @@ typedef struct {
 esp_err_t initialize_wifi();
 esp_err_t networks_wifi(wifi_networks_t* networks);
 esp_err_t networks_free(wifi_networks_t* networks);
+esp_err_t disconnect_wifi();
 esp_err_t join_wifi(wifi_network_t* network);
 esp_err_t netstat_wifi(wifi_netstat_t* netstat);
 

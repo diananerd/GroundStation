@@ -140,8 +140,6 @@ static int join_wifi_exec(int argc, char **argv) {
         return err;
     }
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-
     wifi_netstat_t netstat = {};
     err = netstat_wifi(&netstat);
     if (err != ESP_OK) {

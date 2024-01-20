@@ -34,14 +34,15 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         } else {
             ESP_LOGE(TAG, "connection failed");
             wifi_status = DISCONNECTED;
+            wifi_connection_retries = 0;
         }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
         ESP_LOGI(TAG,"connected event");
         wifi_status = CONNECTED;
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         wifi_connection_retries = 0;
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "got ip event:" IPSTR, IP2STR(&event->ip_info.ip));
+        // ESP_LOGI(TAG, "got ip event:" IPSTR, IP2STR(&event->ip_info.ip));
         char local_ip[16];
         sprintf(local_ip, IPSTR, IP2STR(&event->ip_info.ip));
         ip = (char*)malloc(strlen(local_ip) + 1);
@@ -90,6 +91,7 @@ esp_err_t initialize_wifi() {
     ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+
     err = esp_wifi_connect();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s", esp_err_to_name(err));
@@ -188,13 +190,23 @@ esp_err_t networks_free(wifi_networks_t* networks) {
     return err;
 }
 
+esp_err_t disconnect_wifi() {
+    ESP_LOGI(TAG, "disconnect wifi");
+    esp_err_t err = esp_wifi_disconnect();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s", esp_err_to_name(err));
+    }
+    return err;
+}
+
 esp_err_t join_wifi(wifi_network_t* network) {
     ESP_LOGI(TAG, "join_wifi ssid: %s, password: %s", network->ssid, network->password);
     esp_err_t err = ESP_OK;
 
-    if (wifi_status == DISCONNECTED) {
-        wifi_status = CONNECTING;
-    }
+    disconnect_wifi();
+
+    wifi_status = CONNECTING;
+    wifi_connection_retries = 0;
 
     wifi_config_t wifi_config = {
         .sta = {}
@@ -205,14 +217,40 @@ esp_err_t join_wifi(wifi_network_t* network) {
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
+
+    // int esp_wifi_connect_attempts = 0;
+    // do {
+    //     esp_wifi_connect_attempts++;
+    //     wifi_status = DISCONNECTED;
+
+    //     err = esp_wifi_connect();
+
+    //     if (err == ESP_OK) {
+    //         ESP_LOGI(TAG, "call connecting success");
+    //         break;
+    //     } if (err == ESP_ERR_WIFI_CONN) {
+    //         ESP_LOGE(TAG, "esp err connection error, wait 1 second...");
+    //         vTaskDelay(pdMS_TO_TICKS(1000));
+    //     } else if (err != ESP_ERR_WIFI_CONN) {
+    //         ESP_LOGE(TAG, "esp err other error");
+    //         break;
+    //     }
+    // } while (esp_wifi_connect_attempts < MAX_WIFI_CONNECTION_RETRIES);
+
     err = esp_wifi_connect();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s", esp_err_to_name(err));
-        return err;
+        wifi_status = DISCONNECTED;
+        if (err == ESP_ERR_WIFI_CONN) {
+            
+        } else {
+            return err;
+        }
     }
 
-    while(wifi_status == CONNECTING) {
-        ESP_LOGI(TAG, "Connecting...");
+    ESP_LOGI(TAG, "join state %s", CONNECTION_STATE_NAMES[wifi_status]);
+    while(wifi_status != CONNECTED && wifi_status != DISCONNECTED) {
+        ESP_LOGI(TAG, "Connecting status...");
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
