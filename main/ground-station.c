@@ -157,12 +157,6 @@ void app_main(void) {
     if (password_len < 8) {
       printf("password too short to display\n");
     } else {
-      /* char* password_masked = malloc(password_len);
-      strcpy(password_masked, wifi_pass.valuestring);
-      for (int i = 0; i < password_len - password_end; i++) {
-        password_masked[i] = '*';
-      }
-      printf("password: %s\n", password_masked); */
       printf("password: %s\n", wifi_pass.valuestring);
       network.password = wifi_pass.valuestring;
     }

@@ -228,25 +228,6 @@ esp_err_t join_wifi(wifi_network_t* network) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
 
-    // int esp_wifi_connect_attempts = 0;
-    // do {
-    //     esp_wifi_connect_attempts++;
-    //     wifi_status = DISCONNECTED;
-
-    //     err = esp_wifi_connect();
-
-    //     if (err == ESP_OK) {
-    //         ESP_LOGI(TAG, "call connecting success");
-    //         break;
-    //     } if (err == ESP_ERR_WIFI_CONN) {
-    //         ESP_LOGE(TAG, "esp err connection error, wait 1 second...");
-    //         vTaskDelay(pdMS_TO_TICKS(1000));
-    //     } else if (err != ESP_ERR_WIFI_CONN) {
-    //         ESP_LOGE(TAG, "esp err other error");
-    //         break;
-    //     }
-    // } while (esp_wifi_connect_attempts < MAX_WIFI_CONNECTION_RETRIES);
-
     err = esp_wifi_connect();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s", esp_err_to_name(err));
