@@ -64,57 +64,40 @@ void app_main(void) {
   settings_handle_t settings_handle;
   err = settings_create(&settings_handle);
 
-  setting_t bs_str = {
+/*   board_settings_t board_settings = {
+    .name = "TTGO_LoRA_v2_433MHz",
+    .type = 0,
+    .aADDR = 60,
+    .oSDA = 21,
+    .oSCL = 22,
+    .oRST = 16,
+    .pBut = 0,
+    .led = 22,
+    .lNSS = 18,
+    .lDIO0 = 26,
+    .lDIO1 = 33,
+    .lBUSSY = 0,
+    .lRST = 14,
+    .lMISO = 19,
+    .lMOSI = 27,
+    .lSCK = 5
+  }; */
+
+  setting_t board_name = {
     .type = STRING,
     .key = "board_name",
     .valuestring = "TTGO LoRa32 v2 433 MHz"
   };
+  err = settings_set(&settings_handle, &board_name);
 
-  err = settings_set(&settings_handle, &bs_str);
-
-  // setting_t bs_int = {
-  //   .type = NUMBER,
-  //   .key = "type",
-  //   .valueint = 0
-  // };
-
-  // setting_t bs_int_out = {
-  //   .key = "type"
-  // };
-
-  // err = settings_set(&settings_handle, &bs_int);
-  // err = settings_get(&settings_handle, &bs_int_out);
-  // ESP_LOGI(TAG, "SET %s %s=%i", SETTING_TYPE_NAMES[bs_int_out.type], bs_int_out.key, bs_int_out.valueint);
-
-  // settings_free(&settings_handle);
-
-  // printf("BOARD SETTINGS\n");
-  // settings_list();
+  printf("BOARD SETTINGS\n");
+  settings_list();
 
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;
   esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
   repl_config.task_stack_size = (1024 * 8);
   repl_config.prompt = ">";
-
-  // board_settings_t bs = {
-  //   .name = "TTGO_LoRA_v2_433MHz",
-  //   .type = 0,
-  //   .aADDR = 60,
-  //   .oSDA = 21,
-  //   .oSCL = 22,
-  //   .oRST = 16,
-  //   .pBut = 0,
-  //   .led = 22,
-  //   .lNSS = 18,
-  //   .lDIO0 = 26,
-  //   .lDIO1 = 33,
-  //   .lBUSSY = 0,
-  //   .lRST = 14,
-  //   .lMISO = 19,
-  //   .lMOSI = 27,
-  //   .lSCK = 5
-  // };
 
   /* Register commands */
   esp_console_register_help_command();
@@ -133,7 +116,6 @@ void app_main(void) {
   setting_t wifi_ssid = {
     .key = "wifi_ssid"
   };
-
   err = settings_get(&settings_handle, &wifi_ssid);
 
   if (!wifi_ssid.valuestring) {
@@ -146,20 +128,13 @@ void app_main(void) {
   setting_t wifi_pass = {
     .key = "wifi_pass"
   };
-
   err = settings_get(&settings_handle, &wifi_pass);
 
   if (!wifi_pass.valuestring) {
     printf("password not found\n");
   } else {
-    int password_len = strlen(wifi_pass.valuestring);
-    int password_end = 4;
-    if (password_len < 8) {
-      printf("password too short to display\n");
-    } else {
-      printf("password: %s\n", wifi_pass.valuestring);
-      network.password = wifi_pass.valuestring;
-    }
+    printf("password: %s\n", wifi_pass.valuestring);
+    network.password = wifi_pass.valuestring;
   }
 
   if (!network.ssid || !network.password) {
@@ -167,6 +142,8 @@ void app_main(void) {
   } else {
     join_wifi(&network);
   }
+
+  settings_free(&settings_handle);
 
   /* Setup console REPL over UART */
   esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
