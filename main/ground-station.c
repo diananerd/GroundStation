@@ -156,7 +156,7 @@ void app_main(void) {
   register_ota();
   register_api();
   register_lora();
-  register_motors();
+  // register_motors();
 
   initialize_wifi();
 
