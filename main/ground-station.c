@@ -64,25 +64,6 @@ void app_main(void) {
   settings_handle_t settings_handle;
   err = settings_create(&settings_handle);
 
-/*   board_settings_t board_settings = {
-    .name = "TTGO_LoRA_v2_433MHz",
-    .type = 0,
-    .aADDR = 60,
-    .oSDA = 21,
-    .oSCL = 22,
-    .oRST = 16,
-    .pBut = 0,
-    .led = 22,
-    .lNSS = 18,
-    .lDIO0 = 26,
-    .lDIO1 = 33,
-    .lBUSSY = 0,
-    .lRST = 14,
-    .lMISO = 19,
-    .lMOSI = 27,
-    .lSCK = 5
-  }; */
-
   setting_t bs = {
     .type = STRING
   };
