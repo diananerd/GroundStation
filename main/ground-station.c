@@ -183,6 +183,7 @@ void app_main(void) {
   // register_motors();
 
   initialize_wifi();
+  initialize_oled();
 
   wifi_network_t network = {};
 
