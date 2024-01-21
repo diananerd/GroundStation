@@ -62,23 +62,28 @@ void app_main(void) {
   ESP_ERROR_CHECK( err );
 
   settings_handle_t settings_handle;
-  err = settings_create(&settings_handle);
+  settings_create(&settings_handle);
 
-  setting_t bs = {
-    .type = STRING
-  };
+  setting_t bs = {};
+
   // BOARD MODEL
   bs.key = "board_name";
-  bs.valuestring = "undefined";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valuestring = "undefined";
+    settings_set(&settings_handle, &bs);
+  }
 
   bs.type = NUMBER;
   bs.valuestring = NULL;
-  bs.valueint = 0;
 
   // BOARD TYPE
   bs.key = "board_type";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
 
   // Board types definition:
   // 0 = 433 MHz (downlink)
@@ -87,36 +92,76 @@ void app_main(void) {
 
   // LED PIN
   bs.key = "board_led";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
 
   // OLED SDA PIN
   bs.key = "oled_sda";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
   // OLED SCL PIN
   bs.key = "oled_scl";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
   // OLED RST PIN
   bs.key = "oled_rst";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
 
   // LoRa SCK PIN
   bs.key = "lora_sck";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
   // LoRa SDI (MISO) PIN
   bs.key = "lora_sdi";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
   // LoRa SDO (MOSI) PIN
   bs.key = "lora_sdo";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
   // LoRa CS (SS) PIN
   bs.key = "lora_cs";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
   // LoRa RST PIN
   bs.key = "lora_rst";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
   // LoRa DIO0 PIN
   bs.key = "lora_dio0";
-  err = settings_set(&settings_handle, &bs);
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
 
   printf("BOARD SETTINGS\n");
   settings_list();
