@@ -20,6 +20,13 @@ static int print_oled_exec(int argc, char **argv) {
         arg_print_errors(stderr, print_oled_args.end, argv[0]);
         return 1;
     }
+
+    ESP_LOGI(TAG, "Print text to OLED screen in logs mode with autoscroll");
+    esp_err_t err = run_demo();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error (%s) running OLED demo", esp_err_to_name(err));
+    }
+
     return 0;
 }
 
