@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include "esp_system.h"
 #include "esp_log.h"
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
@@ -147,6 +148,23 @@ static int delete_settings_exec(int argc, char **argv) {
     return 0;
 }
 
+static struct {
+    struct arg_end *end;
+} restart_settings_args;
+
+static int restart_settings_exec(int argc, char **argv) {
+    int nerrors = arg_parse(argc, argv, (void **) &restart_settings_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, restart_settings_args.end, argv[0]);
+        return 1;
+    }
+
+    ESP_LOGI(TAG, "Restart device");
+    esp_restart();
+
+    return 0;
+}
+
 void register_settings() {
     ESP_LOGI(TAG, "register_settings");
 
@@ -192,11 +210,22 @@ void register_settings() {
         .help = "Delete setting by key",
         .hint = NULL,
         .func = &delete_settings_exec,
-        .argtable =&delete_settings_args
+        .argtable = &delete_settings_args
+    };
+
+    restart_settings_args.end = arg_end(0);
+
+    const esp_console_cmd_t restart_settings_cmd = {
+        .command = "restart",
+        .help = "Restart device",
+        .hint = NULL,
+        .func = &restart_settings_exec,
+        .argtable = &restart_settings_args
     };
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&list_settings_cmd));
     ESP_ERROR_CHECK(esp_console_cmd_register(&get_settings_cmd));
     ESP_ERROR_CHECK(esp_console_cmd_register(&set_settings_cmd));
     ESP_ERROR_CHECK(esp_console_cmd_register(&delete_settings_cmd));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&restart_settings_cmd));
 }
