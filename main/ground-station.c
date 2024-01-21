@@ -83,12 +83,59 @@ void app_main(void) {
     .lSCK = 5
   }; */
 
-  setting_t board_name = {
-    .type = STRING,
-    .key = "board_name",
-    .valuestring = "TTGO LoRa32 v2 433 MHz"
+  setting_t bs = {
+    .type = STRING
   };
-  err = settings_set(&settings_handle, &board_name);
+  // BOARD MODEL
+  bs.key = "board_name";
+  bs.valuestring = "TTGO LoRa32 v2 433 MHz";
+  err = settings_set(&settings_handle, &bs);
+
+  bs.type = NUMBER;
+  bs.valuestring = NULL;
+  bs.valueint = 0;
+
+  // BOARD TYPE
+  bs.key = "board_type";
+  err = settings_set(&settings_handle, &bs);
+
+  // Board types definition:
+  // 0 = 433 MHz (downlink)
+  // 1 = 915 MHz (uplink)
+  // 2 = 433 MHz and 915 MHz (downlink and uplink)
+
+  // LED PIN
+  bs.key = "board_led";
+  err = settings_set(&settings_handle, &bs);
+
+  // OLED SDA PIN
+  bs.key = "oled_sda";
+  err = settings_set(&settings_handle, &bs);
+  // OLED SCL PIN
+  bs.key = "oled_scl";
+  err = settings_set(&settings_handle, &bs);
+  // OLED RST PIN
+  bs.key = "oled_rst";
+  err = settings_set(&settings_handle, &bs);
+
+  // LoRa SCK PIN
+  bs.key = "lora_sck";
+  err = settings_set(&settings_handle, &bs);
+  // LoRa SDI (MISO) PIN
+  bs.key = "lora_sdi";
+  err = settings_set(&settings_handle, &bs);
+  // LoRa SDO (MOSI) PIN
+  bs.key = "lora_sdo";
+  err = settings_set(&settings_handle, &bs);
+  // LoRa CS (SS) PIN
+  bs.key = "lora_cs";
+  err = settings_set(&settings_handle, &bs);
+  // LoRa RST PIN
+  bs.key = "lora_rst";
+  err = settings_set(&settings_handle, &bs);
+  // LoRa DIO0 PIN
+  bs.key = "lora_dio0";
+  err = settings_set(&settings_handle, &bs);
 
   printf("BOARD SETTINGS\n");
   settings_list();
