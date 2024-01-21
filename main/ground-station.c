@@ -184,6 +184,7 @@ void app_main(void) {
 
   initialize_wifi();
   initialize_oled();
+  initialize_lora();
 
   wifi_network_t network = {};
 
