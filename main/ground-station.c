@@ -88,7 +88,7 @@ void app_main(void) {
   };
   // BOARD MODEL
   bs.key = "board_name";
-  bs.valuestring = "TTGO LoRa32 v2 433 MHz";
+  bs.valuestring = "undefined";
   err = settings_set(&settings_handle, &bs);
 
   bs.type = NUMBER;
