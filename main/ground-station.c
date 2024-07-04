@@ -1,444 +1,45 @@
 #include <string.h>
-#include <inttypes.h>
-#include <sys/param.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/event_groups.h"
 #include "esp_log.h"
-#include "esp_event.h"
-#include "esp_system.h"
 #include "esp_console.h"
 #include "esp_ota_ops.h"
-#include "esp_http_client.h"
-#include "esp_https_ota.h"
-#include "nvs.h"
 #include "nvs_flash.h"
-#include "cmd_board.h"
-#include "cmd_wifi.h"
-#include "api_calls.h"
-#include "cmd_api.h"
-#include "ssd1306.h"
+#include "settings.h"
+#include "settings_console.h"
+#include "wifi.h"
+#include "wifi_console.h"
+#include "oled.h"
+#include "oled_console.h"
+#include "ota.h"
+#include "ota_console.h"
+#include "api.h"
+#include "api_console.h"
 #include "lora.h"
+#include "lora_console.h"
+#include "motors.h"
+#include "motors_console.h"
 
-#define MI_VARIABLE CONFIG_MI_VARIABLE
+static const char* TAG = "GROUND_STATION";
 
-#define MAX_HTTP_RECV_BUFFER 512
-#define MAX_HTTP_OUTPUT_BUFFER 512
+extern const char ota_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
+extern const char ota_cert_pem_end[] asm("_binary_amazonaws_com_root_cert_pem_end");
 
-#define BASE_FIRMWARE_UPGRADE_URL CONFIG_BASE_FIRMWARE_URL "/firmware/version.txt"
-#define FIRMWARE_STR CONFIG_BASE_FIRMWARE_URL "/firmware/%s/ground-station.bin"
-#define SAVE_MESSAGE_URL CONFIG_SAVE_MESSAGE_URL
-#define HTTP_REQUEST_SIZE 16384
-#define OTA_WAIT_PERIOD_MS 300000 // Fetch OTA Updates every 5 minutes
-#define MAX_OTA_SIZE 4194304 // 4MB
+extern const char api_cert_pem_start[] asm("_binary_platzi_com_root_cert_pem_start");
+extern const char api_cert_pem_end[] asm("_binary_platzi_com_root_cert_pem_end");
 
-#define LORA_MESSAGE_LENGTH 190
-
-static const char* TAG = "GroundStation";
-
-extern const char server_cert_pem_start[] asm("_binary_amazonaws_com_root_cert_pem_start");
-extern const char server_cert_pem_end[] asm("_binary_amazonaws_com_root_cert_pem_end");
-
-SSD1306_t screen;
-
-uint8_t msg[LORA_MESSAGE_LENGTH];
-int packets = 0;
-int rssi = 0;
-
-void log_env_variables() {
-  ESP_LOGI(TAG, "BASE_FIRMWARE_UPGRADE_URL=%s", BASE_FIRMWARE_UPGRADE_URL);
-  ESP_LOGI(TAG, "FIRMWARE_STR=%s", FIRMWARE_STR);
-  ESP_LOGI(TAG, "SAVE_MESSAGE_URL=%s", SAVE_MESSAGE_URL);
+static void log_env_variables() {
+  # ifndef CONFIG_FIRMWARE_URL
+  ESP_LOGE(TAG, "FIRMWARE_URL is not defined in project build");
+  # else
+  ESP_LOGI(TAG, "FIRMWARE_URL=%s", CONFIG_FIRMWARE_URL);
+  # endif
+  # ifndef CONFIG_API_BASE_URL
+  ESP_LOGE(TAG, "API_BASE_URL is not defined in project build");
+  # else
+  ESP_LOGI(TAG, "API_BASE_URL=%s", CONFIG_API_BASE_URL);
+  #endif
 }
-
-void screen_init() {
-  i2c_master_init(&screen, CONFIG_SDA_GPIO, CONFIG_SCL_GPIO, CONFIG_RESET_GPIO);
-  ssd1306_init(&screen, 128, 64);
-  ssd1306_contrast(&screen, 0xFF);
-}
-
-void screen_clear() {
-  ssd1306_clear_screen(&screen, false);
-}
-
-void screen_print(char * str, int page) {
-  ssd1306_clear_line(&screen, page, false);
-  ssd1306_display_text(&screen, page, str, strlen(str), false);
-}
-
-void screen_print_big(char * str, int page) {
-  ssd1306_clear_line(&screen, page, false);
-  ssd1306_display_text_x3(&screen, page, str, strlen(str), false);
-}
-
-void screen_draw(uint8_t *img) {
-  ssd1306_bitmaps(&screen, 0, 0, img, 128, 64, false);
-}
-
-void task_rx(void *p) {
-  ESP_LOGI(TAG, "Start LoRa RX task...");
-  char packets_count[64];
-  char rssi_str[64];
-  int len = 0;
-  while(true) {
-    lora_receive();
-    while(lora_received()) {
-      ESP_LOGI(TAG, "New LoRa message received!");
-      len = lora_receive_packet(msg, LORA_MESSAGE_LENGTH);
-      msg[len] = 0;
-      ESP_LOG_BUFFER_HEX(TAG, msg, len);
-      ESP_LOGI(TAG, "LoRa msg: %s, len: %i", (char*)msg, len);
-
-      rssi = lora_packet_rssi();
-      packets++;
-
-      char msg_code[6];
-      snprintf(msg_code, 6, "%.5s", (char*)msg);
-
-      if (strcmp(msg_code, "FO014") == 0) {
-        ESP_LOGI(TAG, "Starts with FO014, is the PlatziSat-1!");
-        sprintf(packets_count, "Recibiendo...");
-        sprintf(rssi_str, "RSSI: %d dBm", rssi);
-        screen_clear();
-        screen_print(packets_count, 0);
-        screen_print(rssi_str, 1);
-        char message[1024 * 8] = "";
-        sprintf(message, "{\"message\":\"%s\"}", (char*)msg);
-        ESP_LOGI(TAG, "JSON message: %s", message);
-        char res[240] = "";
-        http_post(SAVE_MESSAGE_URL, message, res);
-        screen_clear();
-        packets_count[64] = '\0';
-        sprintf(packets_count, "Mensajes: %d", packets);
-        screen_print(packets_count, 0);
-      } else {
-        ESP_LOGI(TAG, "Unknown origin message");
-      }
-    }
-    vTaskDelay(1);
-  }
-}
-
-void lora_config_init() {
-  printf("lora config init!\n");
-  lora_init();
-  lora_set_frequency(401.7e6);
-  lora_set_spreading_factor(11);
-  lora_set_coding_rate(8);
-  lora_set_bandwidth(125e3);
-  lora_set_sync_word(0x12);
-  lora_enable_crc();
-}
-
-esp_err_t _http_get_event_handler(esp_http_client_event_t *evt) {
-    static char *output_buffer;  // Buffer to store response of http request from event handler
-    static int output_len;       // Stores number of bytes read
-    switch(evt->event_id) {
-        case HTTP_EVENT_ERROR:
-            ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
-            break;
-        case HTTP_EVENT_ON_CONNECTED:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
-            break;
-        case HTTP_EVENT_HEADER_SENT:
-            ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
-            break;
-        case HTTP_EVENT_ON_HEADER:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
-            break;
-        case HTTP_EVENT_ON_DATA:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
-            /*
-             *  Check for chunked encoding is added as the URL for chunked encoding used in this example returns binary data.
-             *  However, event handler can also be used in case chunked encoding is used.
-             */
-            if (!esp_http_client_is_chunked_response(evt->client)) {
-                // If user_data buffer is configured, copy the response into the buffer
-                int copy_len = 0;
-                if (evt->user_data) {
-                    copy_len = MIN(evt->data_len, (MAX_HTTP_OUTPUT_BUFFER - output_len));
-                    if (copy_len) {
-                        memcpy(evt->user_data + output_len, evt->data, copy_len);
-                    }
-                } else {
-                    const int buffer_len = esp_http_client_get_content_length(evt->client);
-                    if (output_buffer == NULL) {
-                        output_buffer = (char *) malloc(buffer_len);
-                        output_len = 0;
-                        if (output_buffer == NULL) {
-                            ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
-                            return ESP_FAIL;
-                        }
-                    }
-                    copy_len = MIN(evt->data_len, (buffer_len - output_len));
-                    if (copy_len) {
-                        memcpy(output_buffer + output_len, evt->data, copy_len);
-                    }
-                }
-                output_len += copy_len;
-            }
-
-            break;
-        case HTTP_EVENT_ON_FINISH:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
-            if (output_buffer != NULL) {
-                // Response is accumulated in output_buffer. Uncomment the below line to print the accumulated response
-                // ESP_LOG_BUFFER_HEX(TAG, output_buffer, output_len);
-                free(output_buffer);
-                output_buffer = NULL;
-            }
-            output_len = 0;
-            break;
-        case HTTP_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
-            if (output_buffer != NULL) {
-                free(output_buffer);
-                output_buffer = NULL;
-            }
-            output_len = 0;
-            break;
-        case HTTP_EVENT_REDIRECT:
-            ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
-            esp_http_client_set_redirection(evt->client);
-            break;
-    }
-    return ESP_OK;
-}
-
-void removeChar(char *str, char c) {
-    int i, j;
-    int len = strlen(str);
-    for (i = j = 0; i < len; i++) {
-        if (str[i] != c) {
-            str[j++] = str[i];
-        }
-    }
-    str[j] = '\0';
-}
-
-char* get_firmware_version(const char *version_url) {
-    char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};
-    ESP_LOGI(TAG, "version_url=%s", version_url);
-    esp_http_client_config_t config = {
-        .url = version_url,
-        .transport_type = HTTP_TRANSPORT_OVER_SSL,
-        .event_handler = _http_get_event_handler,
-        .cert_pem = server_cert_pem_start,
-        .user_data = local_response_buffer,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    esp_err_t err = esp_http_client_perform(client);
-
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTPS Status = %d, content_length = %"PRIu64,
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-    } else {
-        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
-    }
-    esp_http_client_cleanup(client);
-    ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
-    char *version = (char *)malloc(strlen(local_response_buffer)+1);
-    strcpy((char*)version, local_response_buffer);
-    removeChar(version, 0x0a);
-    return version;
-}
-
-static esp_err_t validate_image_header(esp_app_desc_t *new_app_info)
-{
-    if (new_app_info == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    const esp_partition_t *running = esp_ota_get_running_partition();
-    esp_app_desc_t running_app_info;
-    if (esp_ota_get_partition_description(running, &running_app_info) == ESP_OK) {
-        ESP_LOGI(TAG, "Running firmware version: %s", running_app_info.version);
-    }
-
-    if (memcmp(new_app_info->version, running_app_info.version, sizeof(new_app_info->version)) == 0) {
-        ESP_LOGW(TAG, "Current running version is the same as a new. We will not continue the update.");
-        return ESP_ERR_INVALID_VERSION;
-    }
-
-    return ESP_OK;
-}
-
-void ota_task(void *pvParameter) {
-    ESP_LOGI(TAG, "Starting OTA Task");
-    ESP_LOGI(TAG, "Fetch last firmware version...");
-    esp_err_t ota_finish_err = ESP_OK;
-
-    char *version;
-    size_t url_size = 256;
-    char firmware_url[url_size];
-
-    esp_http_client_config_t http_config = {
-      .cert_pem = (char *)server_cert_pem_start,
-      .keep_alive_enable = true,
-    };
-    esp_https_ota_config_t ota_config = {
-      .http_config = &http_config,
-      .partial_http_download = true,
-      .max_http_request_size = HTTP_REQUEST_SIZE,
-    };
-
-    esp_https_ota_handle_t https_ota_handle = NULL;
-    esp_app_desc_t app_desc;
-    esp_err_t err;
-
-    while (true) {
-      ESP_LOGI(TAG, "Search for OTA updates...");
-      version = get_firmware_version(BASE_FIRMWARE_UPGRADE_URL);
-      ESP_LOGI(TAG, "Last firmware version: %s", version);
-      if (strcmp(version, "") == 0) {
-        ESP_LOGI(TAG, "Version unknown");
-        goto abort_update;
-      }
-
-      sprintf(firmware_url, FIRMWARE_STR, version);
-      ESP_LOGI(TAG, "Firmware URL: %s", firmware_url);
-      http_config.url = firmware_url;
-
-      err = esp_https_ota_begin(&ota_config, &https_ota_handle);
-      if (err != ESP_OK) {
-        ESP_LOGE(TAG, "ESP HTTPS OTA Begin failed");
-        goto abort_update;
-      }
-
-      err = esp_https_ota_get_img_desc(https_ota_handle, &app_desc);
-      if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_https_ota_read_img_desc failed");
-        goto abort_update;
-      }
-
-      err = validate_image_header(&app_desc);
-      if (err != ESP_OK) {
-        ESP_LOGI(TAG, "image header verification failed");
-        if (err == ESP_ERR_INVALID_VERSION) {
-          ESP_LOGI(TAG, "image header equal versions");
-          goto abort_update;
-        }
-        goto abort_update;
-      }
-
-      screen_clear();
-      screen_print("  Actualizando", 1);
-      while(true) {
-          err = esp_https_ota_perform(https_ota_handle);
-          if (err != ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
-            break;
-          }
-          int bytes_len = esp_https_ota_get_image_len_read(https_ota_handle);
-          char bytes_str[16];
-          float percent = (bytes_len * 100) / MAX_OTA_SIZE;
-          sprintf(bytes_str, "%*.0f%%", 4, percent);
-          screen_print_big(bytes_str, 4);
-          ESP_LOGI(TAG, "Image bytes read: %d", bytes_len);
-      }
-
-      if (esp_https_ota_is_complete_data_received(https_ota_handle) != true) {
-        // the OTA image was not completely received and user can customise the response to this situation.
-        ESP_LOGE(TAG, "Complete data was not received.");
-      } else {
-        ESP_LOGI(TAG, "Complete data was received.");
-        ota_finish_err = esp_https_ota_finish(https_ota_handle);
-        if ((err == ESP_OK) && (ota_finish_err == ESP_OK)) {
-          ESP_LOGI(TAG, "ESP_HTTPS_OTA upgrade successful. Rebooting ...");
-          vTaskDelay(1000 / portTICK_PERIOD_MS);
-          esp_restart();
-        } else {
-          if (ota_finish_err == ESP_ERR_OTA_VALIDATE_FAILED) {
-            ESP_LOGE(TAG, "Image validation failed, image is corrupted");
-          }
-          ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed 0x%x", ota_finish_err);
-        }
-      }
-abort_update:
-      ESP_LOGI(TAG, "ESP_HTTPS_OTA upgrade failed");
-      esp_https_ota_abort(https_ota_handle);
-      ESP_LOGI(TAG, "OTA task end");
-      vTaskDelay(OTA_WAIT_PERIOD_MS / portTICK_PERIOD_MS);
-    }
-}
-
-static void initialize_nvs(void) {
-  esp_err_t err = nvs_flash_init();
-  if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    ESP_ERROR_CHECK(nvs_flash_erase());
-    err = nvs_flash_init();
-  }
-  ESP_ERROR_CHECK(err);
-}
-
-static uint8_t gs_logo[1024] =  {
-	// 'favicon, 64x64px// 'hdpi', 128x64px
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x78, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0x87, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe0, 0x03, 0xc7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xf0, 0x01, 0xe3, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xf8, 0x00, 0xe3, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xbc, 0x00, 0x71, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x1e, 0x08, 0x31, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x0f, 0x1c, 0x39, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x07, 0xb8, 0x39, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x03, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x01, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x78, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x3c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x80, 0x07, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xc0, 0x03, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xe0, 0x01, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xf0, 0x03, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xfc, 0x0f, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x1f, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x0f, 0xfc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xff, 0xff, 0xff, 0xff, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xff, 0xff, 0xff, 0xff, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xff, 0xff, 0xff, 0xff, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
 
 void app_main(void) {
   /* Log git version build */
@@ -449,11 +50,121 @@ void app_main(void) {
 
   log_env_variables();
 
-  initialize_nvs();
-  initialize_wifi();
-  initialize_api();
+  // Initialize NVS
+  ESP_LOGI(TAG, "Initialize nvs flash");
+  esp_err_t err = nvs_flash_init();
+  if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    // NVS partition was truncated and needs to be erased
+    // Retry nvs_flash_init
+    ESP_ERROR_CHECK(nvs_flash_erase());
+    err = nvs_flash_init();
+  }
+  ESP_ERROR_CHECK( err );
 
-  nvs_session_init();
+  settings_handle_t settings_handle;
+  settings_create(&settings_handle);
+
+  setting_t bs = {};
+
+  // BOARD MODEL
+  bs.key = "board_name";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valuestring = "undefined";
+    settings_set(&settings_handle, &bs);
+  }
+
+  bs.type = NUMBER;
+  bs.valuestring = NULL;
+
+  // BOARD TYPE
+  bs.key = "board_type";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+
+  // Board types definition:
+  // 0 = 433 MHz (downlink)
+  // 1 = 915 MHz (uplink)
+  // 2 = 433 MHz and 915 MHz (downlink and uplink)
+
+  // LED PIN
+  bs.key = "board_led";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+
+  // OLED SDA PIN
+  bs.key = "oled_sda";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+  // OLED SCL PIN
+  bs.key = "oled_scl";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+  // OLED RST PIN
+  bs.key = "oled_rst";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+
+  // LoRa SCK PIN
+  bs.key = "lora_sck";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+  // LoRa SDI (MISO) PIN
+  bs.key = "lora_sdi";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+  // LoRa SDO (MOSI) PIN
+  bs.key = "lora_sdo";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+  // LoRa CS (SS) PIN
+  bs.key = "lora_cs";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+  // LoRa RST PIN
+  bs.key = "lora_rst";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+  // LoRa DIO0 PIN
+  bs.key = "lora_dio0";
+  err = settings_get(&settings_handle, &bs);
+  if (err == ESP_ERR_NOT_FOUND) {
+    bs.valueint = -1;
+    settings_set(&settings_handle, &bs);
+  }
+
+  printf("BOARD SETTINGS\n");
+  settings_list();
 
   /* Prepare serial console for REPL */
   esp_console_repl_t *repl = NULL;
@@ -461,45 +172,53 @@ void app_main(void) {
   repl_config.task_stack_size = (1024 * 8);
   repl_config.prompt = ">";
 
-  // board_settings_t bs = {
-  //   .name = "TTGO_LoRA_v2_433MHz",
-  //   .type = 0,
-  //   .aADDR = 60,
-  //   .oSDA = 21,
-  //   .oSCL = 22,
-  //   .oRST = 16,
-  //   .pBut = 0,
-  //   .led = 22,
-  //   .lNSS = 18,
-  //   .lDIO0 = 26,
-  //   .lDIO1 = 33,
-  //   .lBUSSY = 0,
-  //   .lRST = 14,
-  //   .lMISO = 19,
-  //   .lMOSI = 27,
-  //   .lSCK = 5
-  // };
-
-  ESP_LOGI(TAG, "Get board settings");
-  board_settings_t bs;
-  get_board_settings(&bs);
-  // printf("Board name from settings = %s\n", bs.name);
-
-  lora_config_init();
-  screen_init();
-  screen_clear();
-  screen_draw(gs_logo);
-
-  char data_str[80] = {0};
-  sprintf(data_str, "     v%s", app_description->version);
-  screen_print(data_str, 7);
-
   /* Register commands */
   esp_console_register_help_command();
-
-  register_board();
+  register_settings();
   register_wifi();
+  register_oled();
+  register_ota();
   register_api();
+  register_lora();
+  // register_motors();
+
+  initialize_wifi();
+  initialize_oled();
+  initialize_lora();
+
+  wifi_network_t network = {};
+
+  setting_t wifi_ssid = {
+    .key = "wifi_ssid"
+  };
+  err = settings_get(&settings_handle, &wifi_ssid);
+
+  if (!wifi_ssid.valuestring) {
+    printf("ssid not found\n");
+  } else {
+    printf("ssid: %s\n", wifi_ssid.valuestring);
+    network.ssid = wifi_ssid.valuestring;
+  }
+
+  setting_t wifi_pass = {
+    .key = "wifi_pass"
+  };
+  err = settings_get(&settings_handle, &wifi_pass);
+
+  if (!wifi_pass.valuestring) {
+    printf("password not found\n");
+  } else {
+    printf("password: %s\n", wifi_pass.valuestring);
+    network.password = wifi_pass.valuestring;
+  }
+
+  if (!network.ssid || !network.password) {
+    printf("no wifi credentials found\n");
+  } else {
+    join_wifi(&network);
+  }
+
+  settings_free(&settings_handle);
 
   /* Setup console REPL over UART */
   esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
@@ -507,10 +226,4 @@ void app_main(void) {
 
   /* Run REPL */
   ESP_ERROR_CHECK(esp_console_start_repl(repl));
-
-  xTaskCreate(&task_rx, "task_rx", 1024 * 16, NULL, configMAX_PRIORITIES-1, NULL);
-
-  ESP_LOGI(TAG, "Wait 5 seconds after start OTA updates task...");
-  vTaskDelay(5000 / portTICK_PERIOD_MS);
-  xTaskCreate(&ota_task, "ota_task", 1024 * 8, NULL, 5, NULL);
 }

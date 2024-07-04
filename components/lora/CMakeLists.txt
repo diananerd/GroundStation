@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "lora.c"
-    PRIV_REQUIRES driver
-    INCLUDE_DIRS "include"
+    INCLUDE_DIRS "."
+    REQUIRES sx127x settings
 )

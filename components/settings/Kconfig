@@ -1,0 +1,9 @@
+menu "Board Settings"
+
+config STORAGE_NAMESPACE
+    string
+    default "SETTINGS"
+    help
+	Name of the settings namespece in NVS
+
+endmenu
